@@ -216,6 +216,7 @@ async function cargarDatosFirebase() {
         
         actualizarUICobradores();
         cargarSelectCobradores();
+        actualizarReportes();
         
     } catch (error) {
         console.error('❌ Error cargando datos:', error);
@@ -315,19 +316,27 @@ async function generarRuta() {
 
     // Intercalar préstamos sin ubicación por municipio
     const rutaFinal = [];
-    rutaOptimizada.forEach(item => {
+    let totalVisitas = 0;
+    
+    for (const item of rutaOptimizada) {
+        // Verificar si aún podemos agregar visitas
+        if (totalVisitas >= minimoVisitas) break;
+        
         // Agregar la visita con ubicación
         rutaFinal.push({
             ...item,
             tieneUbicacion: true
         });
+        totalVisitas++;
         
-        // Agregar todas las visitas sin ubicación del mismo municipio
+        // Agregar visitas sin ubicación del mismo municipio hasta llenar el límite
         const sinUbicacionMunicipio = sinUbicacion.filter(p => 
             p.municipio === item.prestamo.municipio
         );
         
-        sinUbicacionMunicipio.forEach(prestamo => {
+        for (const prestamo of sinUbicacionMunicipio) {
+            if (totalVisitas >= minimoVisitas) break;
+            
             rutaFinal.push({
                 prestamo: prestamo,
                 distanciaDesdeAnterior: 0,
@@ -335,8 +344,9 @@ async function generarRuta() {
                 tieneUbicacion: false,
                 municipioReferencia: item.prestamo.municipio
             });
-        });
-    });
+            totalVisitas++;
+        }
+    }
 
     appState.rutaActual = {
         cobrador,
@@ -344,8 +354,8 @@ async function generarRuta() {
         puntoInicio,
         ruta: rutaFinal,
         minimoVisitas,
-        totalConUbicacion: rutaOptimizada.length,
-        totalSinUbicacion: rutaFinal.length - rutaOptimizada.length
+        totalConUbicacion: rutaFinal.filter(item => item.tieneUbicacion).length,
+        totalSinUbicacion: rutaFinal.filter(item => !item.tieneUbicacion).length
     };
 
     mostrarRutaGenerada();
@@ -770,15 +780,26 @@ async function cargarVisitasRuta() {
             <h4>📍 Préstamo ${prestamo.numeroPrestamo}</h4>
             <p><strong>Municipio:</strong> ${prestamo.municipio}</p>
             <p><strong>Estado:</strong> ${prestamo.visitado ? '✅ Visitado' : '⏳ Pendiente'}</p>
+            ${item.tieneUbicacion ? `
+                <p><strong>Ubicación planificada:</strong> ${item.ubicacion.lat}, ${item.ubicacion.lng}</p>
+            ` : `
+                <p><strong>Ubicación:</strong> Sin GPS previo</p>
+            `}
             ${prestamo.visitado && prestamo.fechaVisita ? `
                 <p><strong>Fecha visita:</strong> ${new Date(prestamo.fechaVisita).toLocaleString('es-GT')}</p>
+                ${prestamo.ubicacionReal ? `
+                    <p><strong>Ubicación real:</strong> ${prestamo.ubicacionReal.lat}, ${prestamo.ubicacionReal.lng}</p>
+                ` : ''}
                 ${prestamo.distanciaDesviacion > 0 ? `
-                    <p><strong>Desviación:</strong> ${prestamo.distanciaDesviacion.toFixed(2)} km</p>
+                    <p><strong>Desviación:</strong> ${prestamo.distanciaDesviacion.toFixed(2)} km (${(prestamo.distanciaDesviacion * 1000).toFixed(0)} metros)</p>
                 ` : ''}
             ` : ''}
             ${!prestamo.visitado ? `
                 <div class="visita-actions">
-                    <button class="btn btn-success btn-marcar-visitado" data-id="${prestamo.id}">
+                    <button class="btn btn-success btn-marcar-visitado" 
+                            data-id="${prestamo.id}" 
+                            data-ubicacion-original="${item.ubicacion.lat || ''},${item.ubicacion.lng || ''}"
+                            data-numero="${prestamo.numeroPrestamo}">
                         ✅ Marcar como Visitado
                     </button>
                 </div>
@@ -789,18 +810,112 @@ async function cargarVisitasRuta() {
 
     // Agregar event listeners a botones de marcar visitado
     document.querySelectorAll('.btn-marcar-visitado').forEach(btn => {
-        btn.addEventListener('click', () => marcarComoVisitado(btn.dataset.id));
+        btn.addEventListener('click', () => {
+            mostrarModalVisita(
+                btn.dataset.id, 
+                btn.dataset.ubicacionOriginal,
+                btn.dataset.numero
+            );
+        });
     });
 }
 
-async function marcarComoVisitado(prestamoId) {
+function mostrarModalVisita(prestamoId, ubicacionOriginal, numeroPrestamo) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%;">
+            <h3 style="color: #667eea; margin-bottom: 20px;">📍 Registrar Visita</h3>
+            <p style="margin-bottom: 15px;"><strong>Préstamo:</strong> ${numeroPrestamo}</p>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">
+                    Ubicación GPS de la Visita:
+                </label>
+                <input type="text" id="modalGPS" 
+                       placeholder="14.6349,-90.5069" 
+                       style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px;">
+                <small style="color: #6c757d; margin-top: 5px; display: block;">
+                    Formato: latitud,longitud
+                </small>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="btnCancelarModal" 
+                        style="padding: 10px 20px; border: 2px solid #dc3545; background: white; color: #dc3545; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    Cancelar
+                </button>
+                <button id="btnConfirmarVisita" 
+                        style="padding: 10px 20px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    ✅ Confirmar Visita
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('btnCancelarModal').onclick = () => {
+        document.body.removeChild(modal);
+    };
+    
+    document.getElementById('btnConfirmarVisita').onclick = async () => {
+        const gpsInput = document.getElementById('modalGPS').value;
+        if (!gpsInput) {
+            alert('Por favor ingresa la ubicación GPS');
+            return;
+        }
+        
+        document.body.removeChild(modal);
+        await marcarComoVisitado(prestamoId, gpsInput, ubicacionOriginal);
+    };
+}
+
+async function marcarComoVisitado(prestamoId, gpsStr, ubicacionOriginal) {
     try {
+        const [lat, lng] = gpsStr.split(',').map(s => parseFloat(s.trim()));
+        
+        if (isNaN(lat) || isNaN(lng)) {
+            alert('Formato de GPS inválido. Usa: latitud,longitud');
+            return;
+        }
+
+        const prestamo = appState.prestamos.find(p => p.id === prestamoId);
+        if (!prestamo) return;
+
+        // Calcular desviación si había ubicación original
+        let distanciaDesviacion = 0;
+        if (ubicacionOriginal && ubicacionOriginal !== ',') {
+            const [latOrig, lngOrig] = ubicacionOriginal.split(',').map(s => parseFloat(s.trim()));
+            if (!isNaN(latOrig) && !isNaN(lngOrig)) {
+                distanciaDesviacion = calcularDistancia(latOrig, lngOrig, lat, lng);
+            }
+        }
+
         await updateDoc(doc(db, 'prestamos', prestamoId), {
             visitado: true,
-            fechaVisita: new Date().toISOString()
+            fechaVisita: new Date().toISOString(),
+            ubicacionReal: { lat, lng },
+            distanciaDesviacion: distanciaDesviacion
         });
 
-        alert('✅ Préstamo marcado como visitado');
+        const mensaje = distanciaDesviacion > 0 
+            ? `✅ Visita registrada. Desviación: ${distanciaDesviacion.toFixed(2)} km (${(distanciaDesviacion * 1000).toFixed(0)} metros)`
+            : '✅ Visita registrada correctamente';
+
+        alert(mensaje);
         await cargarDatosFirebase();
         cargarVisitasRuta();
 
@@ -816,6 +931,162 @@ function mostrarMensaje(elementId, mensaje, tipo) {
     element.textContent = mensaje;
     element.className = tipo;
     element.style.display = 'block';
+}
+
+// ============== REPORTES Y ESTADÍSTICAS ==============
+function actualizarReportes() {
+    const container = document.getElementById('estadisticas');
+    
+    // Estadísticas generales
+    const totalPrestamos = appState.prestamos.filter(p => 
+        p.cobrador && p.cobrador.toLowerCase() !== 'sin cobrador'
+    ).length;
+    const conUbicacion = appState.prestamos.filter(p => 
+        p.ubicacion.tipo === 'coordenadas' && 
+        p.cobrador && p.cobrador.toLowerCase() !== 'sin cobrador'
+    ).length;
+    const sinUbicacion = appState.prestamos.filter(p => 
+        p.ubicacion.tipo === 'sin_visita' && 
+        p.cobrador && p.cobrador.toLowerCase() !== 'sin cobrador'
+    ).length;
+    const visitados = appState.prestamos.filter(p => p.visitado).length;
+    const pendientes = totalPrestamos - visitados;
+    
+    // Calcular porcentajes
+    const porcentajeVisitados = totalPrestamos > 0 ? (visitados / totalPrestamos * 100).toFixed(1) : 0;
+    const porcentajeConGPS = totalPrestamos > 0 ? (conUbicacion / totalPrestamos * 100).toFixed(1) : 0;
+    
+    // Estadísticas por cobrador
+    const estatsPorCobrador = appState.cobradores.map(cobrador => {
+        const prestamosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador);
+        const visitadosCobrador = prestamosCobrador.filter(p => p.visitado).length;
+        const conUbicacionCobrador = prestamosCobrador.filter(p => p.ubicacion.tipo === 'coordenadas').length;
+        
+        return {
+            cobrador,
+            total: prestamosCobrador.length,
+            visitados: visitadosCobrador,
+            pendientes: prestamosCobrador.length - visitadosCobrador,
+            conGPS: conUbicacionCobrador,
+            sinGPS: prestamosCobrador.length - conUbicacionCobrador,
+            porcentaje: prestamosCobrador.length > 0 ? (visitadosCobrador / prestamosCobrador.length * 100).toFixed(1) : 0
+        };
+    });
+    
+    container.innerHTML = `
+        <h2>📊 Estadísticas Generales</h2>
+        
+        <div class="stats-grid" style="margin-bottom: 30px;">
+            <div class="stat-item">
+                <div class="number">${totalPrestamos}</div>
+                <div class="label">Total Préstamos</div>
+            </div>
+            <div class="stat-item">
+                <div class="number" style="color: #28a745;">${visitados}</div>
+                <div class="label">Visitados</div>
+            </div>
+            <div class="stat-item">
+                <div class="number" style="color: #ffc107;">${pendientes}</div>
+                <div class="label">Pendientes</div>
+            </div>
+            <div class="stat-item">
+                <div class="number">${porcentajeVisitados}%</div>
+                <div class="label">Avance</div>
+            </div>
+            <div class="stat-item">
+                <div class="number">${conUbicacion}</div>
+                <div class="label">Con GPS</div>
+            </div>
+            <div class="stat-item">
+                <div class="number">${sinUbicacion}</div>
+                <div class="label">Sin GPS</div>
+            </div>
+        </div>
+        
+        <h3>👥 Estadísticas por Cobrador</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Cobrador</th>
+                    <th>Total</th>
+                    <th>Visitados</th>
+                    <th>Pendientes</th>
+                    <th>Con GPS</th>
+                    <th>Sin GPS</th>
+                    <th>Avance %</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${estatsPorCobrador.map(stat => `
+                    <tr>
+                        <td><strong>${stat.cobrador}</strong></td>
+                        <td>${stat.total}</td>
+                        <td><span class="badge badge-success">${stat.visitados}</span></td>
+                        <td><span class="badge badge-warning">${stat.pendientes}</span></td>
+                        <td>${stat.conGPS}</td>
+                        <td>${stat.sinGPS}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="flex: 1; background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, #28a745, #20c997); height: 100%; width: ${stat.porcentaje}%; transition: width 0.3s;"></div>
+                                </div>
+                                <span style="font-weight: 600; color: #28a745;">${stat.porcentaje}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        
+        <div style="margin-top: 30px;">
+            <h3>📍 Detalles de Desviaciones</h3>
+            ${generarTablaDesviaciones()}
+        </div>
+    `;
+}
+
+function generarTablaDesviaciones() {
+    const visitadosConDesviacion = appState.prestamos.filter(p => 
+        p.visitado && p.distanciaDesviacion > 0
+    );
+    
+    if (visitadosConDesviacion.length === 0) {
+        return '<p style="color: #6c757d; font-style: italic;">No hay visitas con desviación registrada aún.</p>';
+    }
+    
+    // Ordenar por mayor desviación
+    visitadosConDesviacion.sort((a, b) => b.distanciaDesviacion - a.distanciaDesviacion);
+    
+    return `
+        <table>
+            <thead>
+                <tr>
+                    <th>Préstamo</th>
+                    <th>Cobrador</th>
+                    <th>Municipio</th>
+                    <th>Desviación (km)</th>
+                    <th>Desviación (m)</th>
+                    <th>Fecha Visita</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${visitadosConDesviacion.map(p => `
+                    <tr>
+                        <td><strong>${p.numeroPrestamo}</strong></td>
+                        <td>${p.cobrador}</td>
+                        <td>${p.municipio}</td>
+                        <td>${p.distanciaDesviacion.toFixed(2)} km</td>
+                        <td>${(p.distanciaDesviacion * 1000).toFixed(0)} m</td>
+                        <td>${new Date(p.fechaVisita).toLocaleDateString('es-GT')}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        <p style="margin-top: 15px; color: #6c757d;">
+            <strong>Promedio de desviación:</strong> 
+            ${(visitadosConDesviacion.reduce((sum, p) => sum + p.distanciaDesviacion, 0) / visitadosConDesviacion.length).toFixed(2)} km
+        </p>
+    `;
 }
 
 // Exportar funciones globales si es necesario
