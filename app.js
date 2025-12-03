@@ -12,11 +12,14 @@ const appState = {
 
 // Inicializar la aplicación
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Iniciando aplicación...');
     initTabs();
     initEventListeners();
+    console.log('📡 Conectando a Firebase...');
     cargarDatosFirebase();
     cargarRutasGuardadas();
     setFechaActual();
+    console.log('✅ Aplicación lista');
 });
 
 // Sistema de pestañas
@@ -63,41 +66,95 @@ async function importarExcel() {
         return;
     }
 
-    mostrarMensaje('importStatus', 'Procesando archivo...', 'info');
+    // Mostrar barra de progreso
+    document.getElementById('progressContainer').style.display = 'block';
+    actualizarProgreso(0, 'Leyendo archivo...');
 
     const reader = new FileReader();
+    
     reader.onload = async (e) => {
         try {
+            actualizarProgreso(20, 'Procesando Excel...');
+            
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
+            actualizarProgreso(40, `${jsonData.length} registros encontrados`);
+            
+            if (jsonData.length === 0) {
+                throw new Error('El archivo está vacío');
+            }
+
+            // Verificar columnas necesarias
+            const primeraFila = jsonData[0];
+            const columnasNecesarias = ['PRESTAMO', 'Cobrador', 'Municipio', 'Departamento', 'Ubicación'];
+            const columnasFaltantes = columnasNecesarias.filter(col => !(col in primeraFila));
+            
+            if (columnasFaltantes.length > 0) {
+                throw new Error(`Faltan columnas: ${columnasFaltantes.join(', ')}`);
+            }
+
+            actualizarProgreso(60, 'Guardando en Firebase...');
+
             // Procesar y guardar en Firebase
             await procesarDatos(jsonData);
             
-            mostrarMensaje('importStatus', `✅ ${jsonData.length} préstamos importados correctamente`, 'success');
+            actualizarProgreso(90, 'Actualizando interfaz...');
             await cargarDatosFirebase();
+            await cargarRutasGuardadas();
+            
+            actualizarProgreso(100, '¡Completado!');
+            
+            setTimeout(() => {
+                document.getElementById('progressContainer').style.display = 'none';
+                mostrarMensaje('importStatus', `✅ ${jsonData.length} préstamos importados correctamente`, 'success');
+            }, 1000);
             
         } catch (error) {
-            console.error('Error:', error);
-            mostrarMensaje('importStatus', 'Error al procesar el archivo: ' + error.message, 'error');
+            console.error('Error completo:', error);
+            document.getElementById('progressContainer').style.display = 'none';
+            mostrarMensaje('importStatus', '❌ Error al procesar el archivo: ' + error.message, 'error');
         }
+    };
+    
+    reader.onerror = () => {
+        document.getElementById('progressContainer').style.display = 'none';
+        mostrarMensaje('importStatus', '❌ Error al leer el archivo', 'error');
     };
     
     reader.readAsArrayBuffer(file);
 }
 
+function actualizarProgreso(porcentaje, texto) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    progressBar.style.width = porcentaje + '%';
+    progressBar.textContent = porcentaje + '%';
+    progressText.textContent = texto;
+}
+
 async function procesarDatos(datos) {
     const prestamosRef = collection(db, 'prestamos');
+    const totalRegistros = datos.length;
     
-    for (const row of datos) {
+    for (let i = 0; i < datos.length; i++) {
+        const row = datos[i];
+        
+        // Actualizar progreso cada 10 registros
+        if (i % 10 === 0) {
+            const progreso = 60 + Math.floor((i / totalRegistros) * 25);
+            actualizarProgreso(progreso, `Guardando ${i + 1} de ${totalRegistros}...`);
+        }
+        
         const ubicacion = extraerCoordenadas(row['Ubicación'] || row['UBICACION'] || '');
         
         const prestamo = {
             numeroPrestamo: row['PRESTAMO'] || row['Prestamo'] || '',
             cobrador: row['Cobrador'] || row['COBRADOR'] || row['Si fuera'] || '',
-            direccion: row['Dirección Domiciliar'] || '',
+            direccion: row['Dirección Domiciliar'] || row['Direccion Domiciliar'] || '',
             municipio: row['Municipio'] || row['MUNICIPIO'] || '',
             departamento: row['Departamento'] || row['DEPARTAMENTO'] || '',
             enCarteraPasada: row['En Cartera pasada'] || '',
@@ -108,7 +165,12 @@ async function procesarDatos(datos) {
             fechaImportacion: new Date().toISOString()
         };
 
-        await addDoc(prestamosRef, prestamo);
+        try {
+            await addDoc(prestamosRef, prestamo);
+        } catch (error) {
+            console.error(`Error guardando préstamo ${prestamo.numeroPrestamo}:`, error);
+            // Continuar con el siguiente
+        }
     }
 }
 
@@ -133,6 +195,7 @@ function extraerCoordenadas(ubicacionStr) {
 // ============== CARGAR DATOS DE FIREBASE ==============
 async function cargarDatosFirebase() {
     try {
+        console.log('📥 Cargando préstamos desde Firebase...');
         const prestamosSnapshot = await getDocs(collection(db, 'prestamos'));
         appState.prestamos = [];
         
@@ -143,15 +206,20 @@ async function cargarDatosFirebase() {
             });
         });
 
+        console.log(`✅ ${appState.prestamos.length} préstamos cargados`);
+
         // Obtener cobradores únicos (excluyendo "Sin cobrador")
         appState.cobradores = [...new Set(appState.prestamos.map(p => p.cobrador))]
             .filter(c => c && c.toLowerCase() !== 'sin cobrador');
+        
+        console.log(`👥 ${appState.cobradores.length} cobradores activos:`, appState.cobradores);
         
         actualizarUICobradores();
         cargarSelectCobradores();
         
     } catch (error) {
-        console.error('Error cargando datos:', error);
+        console.error('❌ Error cargando datos:', error);
+        console.error('Detalles del error:', error.message);
     }
 }
 

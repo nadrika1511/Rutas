@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Firebase</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔥 Test de Conexión Firebase</h1>
+    
+    <div id="status"></div>
+    
+    <h3>Pruebas:</h3>
+    <button onclick="testConexion()">1. Probar Conexión</button>
+    <button onclick="testLectura()">2. Leer Datos</button>
+    <button onclick="testEscritura()">3. Escribir Dato de Prueba</button>
+    
+    <div id="resultado"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCGOpYBMOs6xarNs4_-nrUVJtA0HQDoWA",
+            authDomain: "rutas-d6214.firebaseapp.com",
+            projectId: "rutas-d6214",
+            storageBucket: "rutas-d6214.firebasestorage.app",
+            messagingSenderId: "656140775104",
+            appId: "1:656140775104:web:84e7f256ac64b848a80725"
+        };
+
+        let app, db;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            mostrarEstado('✅ Firebase inicializado correctamente', 'success');
+        } catch (error) {
+            mostrarEstado('❌ Error inicializando Firebase: ' + error.message, 'error');
+        }
+
+        window.testConexion = function() {
+            if (db) {
+                mostrarEstado('✅ Conexión OK - Firebase está listo', 'success');
+            } else {
+                mostrarEstado('❌ No hay conexión a Firebase', 'error');
+            }
+        }
+
+        window.testLectura = async function() {
+            try {
+                mostrarEstado('⏳ Leyendo datos...', 'info');
+                const querySnapshot = await getDocs(collection(db, 'prestamos'));
+                
+                let html = `<h3>✅ Lectura exitosa: ${querySnapshot.size} documentos encontrados</h3>`;
+                
+                if (querySnapshot.size > 0) {
+                    html += '<ul>';
+                    let count = 0;
+                    querySnapshot.forEach((doc) => {
+                        if (count < 5) {
+                            const data = doc.data();
+                            html += `<li>Préstamo: ${data.numeroPrestamo} - ${data.cobrador} - ${data.municipio}</li>`;
+                            count++;
+                        }
+                    });
+                    html += '</ul>';
+                    if (querySnapshot.size > 5) {
+                        html += `<p>... y ${querySnapshot.size - 5} más</p>`;
+                    }
+                }
+                
+                document.getElementById('resultado').innerHTML = html;
+                mostrarEstado('✅ Datos leídos correctamente', 'success');
+            } catch (error) {
+                mostrarEstado('❌ Error leyendo: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        window.testEscritura = async function() {
+            try {
+                mostrarEstado('⏳ Escribiendo dato de prueba...', 'info');
+                
+                const testDoc = await addDoc(collection(db, 'test'), {
+                    mensaje: 'Prueba de escritura',
+                    fecha: new Date().toISOString(),
+                    numero: Math.random()
+                });
+                
+                mostrarEstado('✅ Dato escrito correctamente. ID: ' + testDoc.id, 'success');
+            } catch (error) {
+                mostrarEstado('❌ Error escribiendo: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        function mostrarEstado(mensaje, tipo) {
+            const div = document.getElementById('status');
+            div.className = 'status ' + tipo;
+            div.textContent = mensaje;
+        }
+    </script>
+</body>
+</html>

@@ -29,6 +29,12 @@
                 <input type="file" id="excelFile" accept=".xlsx,.xls">
                 <button id="btnImportar" class="btn btn-primary">Cargar Archivo</button>
                 <div id="importStatus"></div>
+                <div id="progressContainer" style="display:none; margin-top: 20px;">
+                    <div style="background: #e9ecef; border-radius: 10px; height: 30px; overflow: hidden;">
+                        <div id="progressBar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;"></div>
+                    </div>
+                    <p id="progressText" style="text-align: center; margin-top: 10px; color: #495057; font-weight: 600;"></p>
+                </div>
                 <div id="importPreview"></div>
             </div>
         </div>
