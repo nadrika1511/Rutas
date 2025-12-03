@@ -460,7 +460,7 @@ function mostrarRutaGenerada() {
         </div>
     `;
 
-    // Detalle de la ruta
+    // Detalle de la ruta con opción de editar
     let detalleHTML = '<h3>Secuencia de Visitas</h3>';
     ruta.forEach((item, index) => {
         if (item.tieneUbicacion) {
@@ -469,7 +469,16 @@ function mostrarRutaGenerada() {
                 <div class="ruta-item">
                     <h4>📍 Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
-                    <p><strong>Coordenadas:</strong> ${item.prestamo.ubicacion.lat}, ${item.prestamo.ubicacion.lng}</p>
+                    <p><strong>Coordenadas:</strong> 
+                        <input type="text" 
+                               class="gps-edit-input" 
+                               id="gps-${item.prestamo.id}" 
+                               value="${item.prestamo.ubicacion.lat},${item.prestamo.ubicacion.lng}"
+                               style="width: 200px; padding: 5px; border: 2px solid #e9ecef; border-radius: 5px; font-size: 14px;">
+                        <button class="btn-mini btn-cambiar-sin-gps" data-id="${item.prestamo.id}">
+                            ❌ Marcar sin GPS
+                        </button>
+                    </p>
                     <p><strong>Distancia desde anterior:</strong> ${item.distanciaDesdeAnterior.toFixed(2)} km</p>
                     <p><strong>Tiempo estimado:</strong> ${item.tiempoEstimado} minutos</p>
                 </div>
@@ -481,15 +490,119 @@ function mostrarRutaGenerada() {
                     <h4>⚠️ Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
                     <p><strong>Estado:</strong> Sin ubicación GPS previa</p>
+                    <p>
+                        <input type="text" 
+                               class="gps-edit-input" 
+                               id="gps-${item.prestamo.id}" 
+                               placeholder="14.6349,-90.5069"
+                               style="width: 200px; padding: 5px; border: 2px solid #ffc107; border-radius: 5px; font-size: 14px;">
+                        <small style="color: #856404;">Puedes agregar coordenadas GPS aquí</small>
+                    </p>
                     <p style="color: #856404;"><em>Visitar en el municipio de ${item.municipioReferencia}</em></p>
                 </div>
             `;
         }
     });
+    
+    detalleHTML += `
+        <div style="margin-top: 20px; padding: 20px; background: #e3f2fd; border-radius: 10px; text-align: center;">
+            <p style="margin-bottom: 15px; color: #1976d2; font-weight: 600;">
+                ⚡ ¿Editaste alguna ubicación? Regenera la ruta para aplicar los cambios
+            </p>
+            <button id="btnRegenerarRuta" class="btn btn-primary" style="font-size: 18px;">
+                🔄 Regenerar Ruta con Cambios
+            </button>
+        </div>
+    `;
+    
     detalleDiv.innerHTML = detalleHTML;
+
+    // Event listeners para cambiar a sin GPS
+    document.querySelectorAll('.btn-cambiar-sin-gps').forEach(btn => {
+        btn.addEventListener('click', () => cambiarASinGPS(btn.dataset.id));
+    });
+
+    // Event listener para regenerar ruta
+    document.getElementById('btnRegenerarRuta').addEventListener('click', regenerarRutaConCambios);
 
     // Mostrar mapa
     mostrarMapaRuta();
+}
+
+async function cambiarASinGPS(prestamoId) {
+    if (!confirm('¿Seguro que quieres marcar este préstamo como "Sin GPS"?')) {
+        return;
+    }
+
+    try {
+        await updateDoc(doc(db, 'prestamos', prestamoId), {
+            ubicacion: {
+                lat: null,
+                lng: null,
+                tipo: 'sin_visita'
+            }
+        });
+
+        alert('✅ Préstamo marcado como "Sin GPS". Haz click en "Regenerar Ruta" para actualizar.');
+        await cargarDatosFirebase();
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al actualizar el préstamo');
+    }
+}
+
+async function regenerarRutaConCambios() {
+    const cambios = [];
+    
+    // Recopilar cambios de todos los inputs
+    document.querySelectorAll('.gps-edit-input').forEach(input => {
+        const prestamoId = input.id.replace('gps-', '');
+        const valorNuevo = input.value.trim();
+        
+        if (valorNuevo) {
+            const [lat, lng] = valorNuevo.split(',').map(s => parseFloat(s.trim()));
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+                cambios.push({
+                    prestamoId,
+                    ubicacion: { lat, lng, tipo: 'coordenadas' }
+                });
+            }
+        }
+    });
+
+    if (cambios.length === 0) {
+        alert('No se detectaron cambios válidos en las ubicaciones');
+        return;
+    }
+
+    if (!confirm(`¿Confirmas aplicar ${cambios.length} cambio(s) de ubicación y regenerar la ruta?`)) {
+        return;
+    }
+
+    try {
+        // Aplicar cambios en Firebase
+        for (const cambio of cambios) {
+            await updateDoc(doc(db, 'prestamos', cambio.prestamoId), {
+                ubicacion: cambio.ubicacion
+            });
+        }
+
+        alert(`✅ ${cambios.length} ubicación(es) actualizada(s). Regenerando ruta...`);
+        
+        // Recargar datos y regenerar ruta
+        await cargarDatosFirebase();
+        
+        // Esperar un momento para que se actualicen los datos
+        setTimeout(() => {
+            generarRuta();
+        }, 500);
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al actualizar las ubicaciones');
+    }
 }
 
 function mostrarMapaRuta() {
