@@ -155,8 +155,9 @@ async function procesarDatos(datos) {
         
         const prestamo = {
             numeroPrestamo: row['PRESTAMO'] || row['Prestamo'] || '',
+            nombreCliente: row['Nombre'] || row['NOMBRE'] || row['Nombre Cliente'] || row['Cliente'] || row['CLIENTE'] || '',
             cobrador: row['Cobrador'] || row['COBRADOR'] || row['Si fuera'] || '',
-            direccion: row['Dirección Domiciliar'] || row['Direccion Domiciliar'] || '',
+            direccion: row['Dirección Domiciliar'] || row['Direccion Domiciliar'] || row['Direccion'] || row['DIRECCION'] || '',
             municipio: row['Municipio'] || row['MUNICIPIO'] || '',
             departamento: row['Departamento'] || row['DEPARTAMENTO'] || '',
             enCarteraPasada: row['En Cartera pasada'] || '',
@@ -718,6 +719,8 @@ function mostrarRutaGenerada() {
             detalleHTML += `
                 <div class="ruta-item">
                     <h4>📍 Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
+                    ${item.prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${item.prestamo.nombreCliente}</p>` : ''}
+                    <p><strong>Dirección:</strong> ${item.prestamo.direccion || 'No disponible'}</p>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
                     <p><strong>Coordenadas:</strong> 
                         <input type="text" 
@@ -738,6 +741,8 @@ function mostrarRutaGenerada() {
             detalleHTML += `
                 <div class="ruta-item" style="border-left-color: #ffc107; background: #fff9e6;">
                     <h4>⚠️ Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
+                    ${item.prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${item.prestamo.nombreCliente}</p>` : ''}
+                    <p><strong>Dirección:</strong> ${item.prestamo.direccion || 'No disponible'}</p>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
                     <p><strong>Estado:</strong> Sin ubicación GPS previa</p>
                     <p>
@@ -1032,7 +1037,7 @@ async function descargarPDF() {
 
     doc.setFontSize(10);
     ruta.ruta.forEach((item, index) => {
-        if (y > 270) {
+        if (y > 265) {
             doc.addPage();
             y = 20;
         }
@@ -1040,6 +1045,15 @@ async function descargarPDF() {
         if (item.tieneUbicacion) {
             doc.text(`${index + 1}. [GPS] Prestamo: ${item.prestamo.numeroPrestamo}`, 20, y);
             y += 5;
+            if (item.prestamo.nombreCliente) {
+                doc.text(`   Cliente: ${item.prestamo.nombreCliente}`, 20, y);
+                y += 5;
+            }
+            if (item.prestamo.direccion) {
+                const direccion = item.prestamo.direccion.substring(0, 60);
+                doc.text(`   Direccion: ${direccion}`, 20, y);
+                y += 5;
+            }
             doc.text(`   Municipio: ${item.prestamo.municipio}`, 20, y);
             y += 5;
             doc.text(`   Distancia: ${item.distanciaDesdeAnterior.toFixed(2)} km | Tiempo: ${item.tiempoEstimado} min`, 20, y);
@@ -1047,6 +1061,15 @@ async function descargarPDF() {
         } else {
             doc.text(`${index + 1}. [SIN GPS] Prestamo: ${item.prestamo.numeroPrestamo}`, 20, y);
             y += 5;
+            if (item.prestamo.nombreCliente) {
+                doc.text(`   Cliente: ${item.prestamo.nombreCliente}`, 20, y);
+                y += 5;
+            }
+            if (item.prestamo.direccion) {
+                const direccion = item.prestamo.direccion.substring(0, 60);
+                doc.text(`   Direccion: ${direccion}`, 20, y);
+                y += 5;
+            }
             doc.text(`   Municipio: ${item.prestamo.municipio}`, 20, y);
             y += 5;
             doc.text(`   (Visitar en ${item.municipioReferencia})`, 20, y);
@@ -1150,7 +1173,8 @@ async function cargarRutasGuardadas() {
         appState.prestamos.filter(p => !p.visitado).forEach(prestamo => {
             const option = document.createElement('option');
             option.value = prestamo.id;
-            option.textContent = `${prestamo.numeroPrestamo} - ${prestamo.cobrador} - ${prestamo.municipio}`;
+            const nombre = prestamo.nombreCliente ? ` - ${prestamo.nombreCliente}` : '';
+            option.textContent = `${prestamo.numeroPrestamo}${nombre} - ${prestamo.cobrador} - ${prestamo.municipio}`;
             selectPrestamo.appendChild(option);
         });
 
@@ -1181,6 +1205,8 @@ async function cargarVisitasRuta() {
         div.className = `ruta-item ${prestamo.visitado ? 'visitado' : ''}`;
         div.innerHTML = `
             <h4>📍 Préstamo ${prestamo.numeroPrestamo}</h4>
+            ${prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${prestamo.nombreCliente}</p>` : ''}
+            ${prestamo.direccion ? `<p><strong>Dirección:</strong> ${prestamo.direccion}</p>` : ''}
             <p><strong>Municipio:</strong> ${prestamo.municipio}</p>
             <p><strong>Estado:</strong> ${prestamo.visitado ? '✅ Visitado' : '⏳ Pendiente'}</p>
             ${item.tieneUbicacion ? `
