@@ -50,7 +50,13 @@ function initEventListeners() {
     document.getElementById('btnDescargarPDF').addEventListener('click', descargarPDF);
     document.getElementById('btnRegistrarGPS').addEventListener('click', registrarGPSManual);
     document.getElementById('rutaSelectVisita').addEventListener('change', cargarVisitasRuta);
-    document.getElementById('btnGenerarPDFRuta').addEventListener('click', generarPDFRutaDia);
+    
+    // Usar delegación de eventos para botones que pueden no existir inicialmente
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'btnGenerarPDFRuta') {
+            generarPDFRutaDia();
+        }
+    });
 }
 
 // Establecer fecha actual
