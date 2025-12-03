@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Rutas - Avanta</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ Sistema de Rutas de Cobranza</h1>
+            <div id="userInfo"></div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="import">📁 Importar</button>
+            <button class="tab-btn" data-tab="cobradores">👥 Cobradores</button>
+            <button class="tab-btn" data-tab="rutas">🚗 Generar Ruta</button>
+            <button class="tab-btn" data-tab="visitas">✅ Visitas</button>
+            <button class="tab-btn" data-tab="reportes">📊 Reportes</button>
+        </nav>
+
+        <!-- TAB: IMPORTAR -->
+        <div class="tab-content active" id="import">
+            <div class="card">
+                <h2>Importar Datos desde Excel</h2>
+                <input type="file" id="excelFile" accept=".xlsx,.xls">
+                <button id="btnImportar" class="btn btn-primary">Cargar Archivo</button>
+                <div id="importStatus"></div>
+                <div id="importPreview"></div>
+            </div>
+        </div>
+
+        <!-- TAB: COBRADORES -->
+        <div class="tab-content" id="cobradores">
+            <div class="card">
+                <h2>Cobradores y Cartera</h2>
+                <div id="cobradoresList"></div>
+            </div>
+        </div>
+
+        <!-- TAB: GENERAR RUTAS -->
+        <div class="tab-content" id="rutas">
+            <div class="card">
+                <h2>Generador de Rutas Optimizadas</h2>
+                
+                <div class="form-group">
+                    <label>Cobrador:</label>
+                    <select id="cobradorSelect"></select>
+                </div>
+
+                <div class="form-group">
+                    <label>Fecha de la Ruta:</label>
+                    <input type="date" id="fechaRuta">
+                </div>
+
+                <div class="form-group">
+                    <label>Punto de Inicio (GPS):</label>
+                    <input type="text" id="puntoInicio" placeholder="14.6349,-90.5069">
+                    <small>Formato: latitud,longitud</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Mínimo de Visitas en la Ruta:</label>
+                    <input type="number" id="minimoVisitas" value="10" min="1">
+                </div>
+
+                <button id="btnGenerarRuta" class="btn btn-primary">🗺️ Generar Ruta Optimizada</button>
+
+                <div id="rutaGenerada" style="display:none;">
+                    <h3>Ruta Generada</h3>
+                    <div id="rutaStats"></div>
+                    <div id="mapaRuta" style="height: 500px; margin: 20px 0;"></div>
+                    <div id="rutaDetalle"></div>
+                    <button id="btnGuardarRuta" class="btn btn-success">💾 Guardar Ruta</button>
+                    <button id="btnDescargarPDF" class="btn btn-warning">📄 Descargar PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: VISITAS -->
+        <div class="tab-content" id="visitas">
+            <div class="card">
+                <h2>Registro de Visitas</h2>
+                
+                <div class="form-group">
+                    <label>Seleccionar Ruta:</label>
+                    <select id="rutaSelectVisita"></select>
+                </div>
+
+                <div id="visitasList"></div>
+
+                <div class="card" style="margin-top: 20px; background: #f0f9ff;">
+                    <h3>Registrar Ubicación Manual</h3>
+                    <div class="form-group">
+                        <label>Préstamo:</label>
+                        <select id="prestamoManual"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ubicación GPS:</label>
+                        <input type="text" id="gpsManual" placeholder="14.6349,-90.5069">
+                    </div>
+                    <button id="btnRegistrarGPS" class="btn btn-primary">📍 Registrar Ubicación</button>
+                    <div id="distanciaInfo"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: REPORTES -->
+        <div class="tab-content" id="reportes">
+            <div class="card">
+                <h2>Reportes y Estadísticas</h2>
+                <div id="estadisticas"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    
+    <script type="module" src="app.js"></script>
+</body>
+</html>
