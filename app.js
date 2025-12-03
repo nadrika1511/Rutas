@@ -313,20 +313,39 @@ async function generarRuta() {
     // Algoritmo de optimización de ruta (Nearest Neighbor)
     const rutaOptimizada = optimizarRuta(conUbicacion, puntoInicio, minimoVisitas);
 
-    // Agregar préstamos sin ubicación por municipio
+    // Intercalar préstamos sin ubicación por municipio
+    const rutaFinal = [];
     rutaOptimizada.forEach(item => {
+        // Agregar la visita con ubicación
+        rutaFinal.push({
+            ...item,
+            tieneUbicacion: true
+        });
+        
+        // Agregar todas las visitas sin ubicación del mismo municipio
         const sinUbicacionMunicipio = sinUbicacion.filter(p => 
             p.municipio === item.prestamo.municipio
         );
-        item.sinUbicacionMunicipio = sinUbicacionMunicipio;
+        
+        sinUbicacionMunicipio.forEach(prestamo => {
+            rutaFinal.push({
+                prestamo: prestamo,
+                distanciaDesdeAnterior: 0,
+                tiempoEstimado: 0,
+                tieneUbicacion: false,
+                municipioReferencia: item.prestamo.municipio
+            });
+        });
     });
 
     appState.rutaActual = {
         cobrador,
         fecha: document.getElementById('fechaRuta').value,
         puntoInicio,
-        ruta: rutaOptimizada,
-        minimoVisitas
+        ruta: rutaFinal,
+        minimoVisitas,
+        totalConUbicacion: rutaOptimizada.length,
+        totalSinUbicacion: rutaFinal.length - rutaOptimizada.length
     };
 
     mostrarRutaGenerada();
@@ -400,20 +419,24 @@ function mostrarRutaGenerada() {
     container.style.display = 'block';
 
     const ruta = appState.rutaActual.ruta;
-    const distanciaTotal = ruta.reduce((sum, item) => sum + item.distanciaDesdeAnterior, 0);
-    const tiempoTotal = ruta.reduce((sum, item) => sum + item.tiempoEstimado, 0);
-    const totalConSinUbicacion = ruta.reduce((sum, item) => 
-        sum + 1 + (item.sinUbicacionMunicipio?.length || 0), 0
-    );
+    const conUbicacion = ruta.filter(item => item.tieneUbicacion);
+    const sinUbicacion = ruta.filter(item => !item.tieneUbicacion);
+    
+    const distanciaTotal = conUbicacion.reduce((sum, item) => sum + item.distanciaDesdeAnterior, 0);
+    const tiempoTotal = conUbicacion.reduce((sum, item) => sum + item.tiempoEstimado, 0);
 
     statsDiv.innerHTML = `
         <div class="stats-grid">
             <div class="stat-item">
-                <div class="number">${ruta.length}</div>
+                <div class="number">${conUbicacion.length}</div>
                 <div class="label">Visitas con GPS</div>
             </div>
             <div class="stat-item">
-                <div class="number">${totalConSinUbicacion}</div>
+                <div class="number">${sinUbicacion.length}</div>
+                <div class="label">Visitas sin GPS</div>
+            </div>
+            <div class="stat-item">
+                <div class="number">${ruta.length}</div>
                 <div class="label">Total Visitas</div>
             </div>
             <div class="stat-item">
@@ -430,21 +453,28 @@ function mostrarRutaGenerada() {
     // Detalle de la ruta
     let detalleHTML = '<h3>Secuencia de Visitas</h3>';
     ruta.forEach((item, index) => {
-        const sinUbicacion = item.sinUbicacionMunicipio || [];
-        detalleHTML += `
-            <div class="ruta-item">
-                <h4>📍 Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
-                <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
-                <p><strong>Distancia desde anterior:</strong> ${item.distanciaDesdeAnterior.toFixed(2)} km</p>
-                <p><strong>Tiempo estimado:</strong> ${item.tiempoEstimado} minutos</p>
-                ${sinUbicacion.length > 0 ? `
-                    <p><strong>⚠️ Sin ubicación en mismo municipio:</strong></p>
-                    <ul>
-                        ${sinUbicacion.map(p => `<li>Préstamo ${p.numeroPrestamo}</li>`).join('')}
-                    </ul>
-                ` : ''}
-            </div>
-        `;
+        if (item.tieneUbicacion) {
+            // Visita con ubicación GPS
+            detalleHTML += `
+                <div class="ruta-item">
+                    <h4>📍 Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
+                    <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
+                    <p><strong>Coordenadas:</strong> ${item.prestamo.ubicacion.lat}, ${item.prestamo.ubicacion.lng}</p>
+                    <p><strong>Distancia desde anterior:</strong> ${item.distanciaDesdeAnterior.toFixed(2)} km</p>
+                    <p><strong>Tiempo estimado:</strong> ${item.tiempoEstimado} minutos</p>
+                </div>
+            `;
+        } else {
+            // Visita sin ubicación GPS
+            detalleHTML += `
+                <div class="ruta-item" style="border-left-color: #ffc107; background: #fff9e6;">
+                    <h4>⚠️ Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
+                    <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
+                    <p><strong>Estado:</strong> Sin ubicación GPS previa</p>
+                    <p style="color: #856404;"><em>Visitar en el municipio de ${item.municipioReferencia}</em></p>
+                </div>
+            `;
+        }
     });
     detalleDiv.innerHTML = detalleHTML;
 
@@ -462,6 +492,9 @@ function mostrarMapaRuta() {
     const ruta = appState.rutaActual.ruta;
     const puntoInicio = appState.rutaActual.puntoInicio;
 
+    // Filtrar solo visitas con ubicación GPS
+    const visitasConGPS = ruta.filter(item => item.tieneUbicacion);
+
     // Centrar en el punto de inicio
     appState.mapaRuta = L.map('mapaRuta').setView([puntoInicio.lat, puntoInicio.lng], 12);
 
@@ -477,10 +510,10 @@ function mostrarMapaRuta() {
         })
     }).addTo(appState.mapaRuta).bindPopup('Punto de Inicio');
 
-    // Marcadores de la ruta
+    // Marcadores de la ruta (solo con GPS)
     const coordenadas = [[puntoInicio.lat, puntoInicio.lng]];
     
-    ruta.forEach((item, index) => {
+    visitasConGPS.forEach((item, index) => {
         const lat = item.prestamo.ubicacion.lat;
         const lng = item.prestamo.ubicacion.lng;
         coordenadas.push([lat, lng]);
@@ -521,16 +554,20 @@ async function guardarRuta() {
                 numeroPrestamo: item.prestamo.numeroPrestamo,
                 municipio: item.prestamo.municipio,
                 ubicacion: item.prestamo.ubicacion,
+                tieneUbicacion: item.tieneUbicacion,
                 distancia: item.distanciaDesdeAnterior,
-                tiempo: item.tiempoEstimado,
-                sinUbicacionMunicipio: item.sinUbicacionMunicipio?.map(p => p.id) || []
+                tiempo: item.tiempoEstimado
             })),
+            totalVisitas: appState.rutaActual.ruta.length,
+            visitasConGPS: appState.rutaActual.totalConUbicacion,
+            visitasSinGPS: appState.rutaActual.totalSinUbicacion,
             fechaCreacion: new Date().toISOString(),
             completada: false
         };
 
         await addDoc(collection(db, 'rutas'), rutaData);
         alert('✅ Ruta guardada exitosamente');
+        await cargarRutasGuardadas();
         
     } catch (error) {
         console.error('Error:', error);
@@ -561,10 +598,16 @@ async function descargarPDF() {
     y += 10;
 
     // Estadísticas
-    const distanciaTotal = ruta.ruta.reduce((sum, item) => sum + item.distanciaDesdeAnterior, 0);
-    const tiempoTotal = ruta.ruta.reduce((sum, item) => sum + item.tiempoEstimado, 0);
+    const conUbicacion = ruta.ruta.filter(item => item.tieneUbicacion);
+    const sinUbicacion = ruta.ruta.filter(item => !item.tieneUbicacion);
+    const distanciaTotal = conUbicacion.reduce((sum, item) => sum + item.distanciaDesdeAnterior, 0);
+    const tiempoTotal = conUbicacion.reduce((sum, item) => sum + item.tiempoEstimado, 0);
     
-    doc.text(`Visitas: ${ruta.ruta.length}`, 20, y);
+    doc.text(`Total Visitas: ${ruta.ruta.length}`, 20, y);
+    y += 7;
+    doc.text(`  - Con GPS: ${conUbicacion.length}`, 20, y);
+    y += 7;
+    doc.text(`  - Sin GPS: ${sinUbicacion.length}`, 20, y);
     y += 7;
     doc.text(`Distancia Total: ${distanciaTotal.toFixed(2)} km`, 20, y);
     y += 7;
@@ -583,27 +626,27 @@ async function descargarPDF() {
             y = 20;
         }
 
-        doc.text(`${index + 1}. Préstamo: ${item.prestamo.numeroPrestamo}`, 20, y);
-        y += 5;
-        doc.text(`   Municipio: ${item.prestamo.municipio}`, 20, y);
-        y += 5;
-        doc.text(`   Distancia: ${item.distanciaDesdeAnterior.toFixed(2)} km | Tiempo: ${item.tiempoEstimado} min`, 20, y);
-        y += 7;
-
-        if (item.sinUbicacionMunicipio && item.sinUbicacionMunicipio.length > 0) {
-            doc.text(`   Sin ubicación en mismo municipio:`, 20, y);
+        if (item.tieneUbicacion) {
+            doc.text(`${index + 1}. [GPS] Prestamo: ${item.prestamo.numeroPrestamo}`, 20, y);
             y += 5;
-            item.sinUbicacionMunicipio.forEach(p => {
-                doc.text(`     - Préstamo ${p.numeroPrestamo}`, 20, y);
-                y += 5;
-            });
-            y += 2;
+            doc.text(`   Municipio: ${item.prestamo.municipio}`, 20, y);
+            y += 5;
+            doc.text(`   Distancia: ${item.distanciaDesdeAnterior.toFixed(2)} km | Tiempo: ${item.tiempoEstimado} min`, 20, y);
+            y += 7;
+        } else {
+            doc.text(`${index + 1}. [SIN GPS] Prestamo: ${item.prestamo.numeroPrestamo}`, 20, y);
+            y += 5;
+            doc.text(`   Municipio: ${item.prestamo.municipio}`, 20, y);
+            y += 5;
+            doc.text(`   (Visitar en ${item.municipioReferencia})`, 20, y);
+            y += 7;
         }
     });
 
     // Capturar mapa
     doc.addPage();
-    doc.text('Mapa de Ruta', 105, 20, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text('Mapa de Ruta (Solo visitas con GPS)', 105, 20, { align: 'center' });
     
     const mapCanvas = await html2canvas(document.getElementById('mapaRuta'));
     const imgData = mapCanvas.toDataURL('image/png');
