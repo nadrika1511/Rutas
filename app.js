@@ -7,7 +7,8 @@ const appState = {
     cobradores: [],
     rutasGuardadas: [],
     rutaActual: null,
-    mapaRuta: null
+    mapaRuta: null,
+    huboEditosRuta: false
 };
 
 // Inicializar la aplicación
@@ -543,8 +544,10 @@ async function cambiarASinGPS(prestamoId) {
             }
         });
 
-        alert('✅ Préstamo marcado como "Sin GPS". Haz click en "Regenerar Ruta" para actualizar.');
-        await cargarDatosFirebase();
+        alert('✅ Préstamo marcado como "Sin GPS".');
+        
+        // Marcar que hubo cambios
+        appState.huboEditosRuta = true;
 
     } catch (error) {
         console.error('Error:', error);
@@ -553,14 +556,27 @@ async function cambiarASinGPS(prestamoId) {
 }
 
 async function regenerarRutaConCambios() {
+    if (!appState.rutaActual) {
+        alert('No hay ruta activa para regenerar');
+        return;
+    }
+
     const cambios = [];
     
     // Recopilar cambios de todos los inputs
     document.querySelectorAll('.gps-edit-input').forEach(input => {
         const prestamoId = input.id.replace('gps-', '');
         const valorNuevo = input.value.trim();
+        const prestamo = appState.prestamos.find(p => p.id === prestamoId);
         
-        if (valorNuevo) {
+        if (!prestamo) return;
+        
+        // Verificar si el valor cambió
+        const valorOriginal = prestamo.ubicacion.lat && prestamo.ubicacion.lng 
+            ? `${prestamo.ubicacion.lat},${prestamo.ubicacion.lng}` 
+            : '';
+        
+        if (valorNuevo && valorNuevo !== valorOriginal) {
             const [lat, lng] = valorNuevo.split(',').map(s => parseFloat(s.trim()));
             
             if (!isNaN(lat) && !isNaN(lng)) {
@@ -572,12 +588,15 @@ async function regenerarRutaConCambios() {
         }
     });
 
-    if (cambios.length === 0) {
-        alert('No se detectaron cambios válidos en las ubicaciones');
+    // Verificar si hubo cambios de "Sin GPS"
+    if (cambios.length === 0 && !appState.huboEditosRuta) {
+        alert('No se detectaron cambios en las ubicaciones');
         return;
     }
 
-    if (!confirm(`¿Confirmas aplicar ${cambios.length} cambio(s) de ubicación y regenerar la ruta?`)) {
+    const totalCambios = cambios.length + (appState.huboEditosRuta ? 1 : 0);
+    
+    if (!confirm(`¿Confirmas aplicar los cambios y regenerar la ruta?`)) {
         return;
     }
 
@@ -589,15 +608,41 @@ async function regenerarRutaConCambios() {
             });
         }
 
-        alert(`✅ ${cambios.length} ubicación(es) actualizada(s). Regenerando ruta...`);
+        if (cambios.length > 0) {
+            alert(`✅ ${cambios.length} ubicación(es) actualizada(s). Regenerando ruta...`);
+        }
         
-        // Recargar datos y regenerar ruta
+        // Guardar configuración actual de la ruta
+        const configuracionRuta = {
+            cobrador: appState.rutaActual.cobrador,
+            puntoInicio: appState.rutaActual.puntoInicio,
+            minimoVisitas: appState.rutaActual.minimoVisitas,
+            fecha: appState.rutaActual.fecha
+        };
+        
+        // Recargar datos
         await cargarDatosFirebase();
         
-        // Esperar un momento para que se actualicen los datos
+        // Restaurar configuración y regenerar
         setTimeout(() => {
+            // Restaurar valores en el formulario
+            document.getElementById('cobradorSelect').value = configuracionRuta.cobrador;
+            document.getElementById('puntoInicio').value = `${configuracionRuta.puntoInicio.lat},${configuracionRuta.puntoInicio.lng}`;
+            document.getElementById('minimoVisitas').value = configuracionRuta.minimoVisitas;
+            document.getElementById('fechaRuta').value = configuracionRuta.fecha;
+            
+            // Regenerar ruta
             generarRuta();
+            
+            // Limpiar flag
+            appState.huboEditosRuta = false;
         }, 500);
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al actualizar las ubicaciones');
+    }
+}
 
     } catch (error) {
         console.error('Error:', error);
