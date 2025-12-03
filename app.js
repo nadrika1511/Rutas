@@ -889,12 +889,6 @@ async function regenerarRutaConCambios() {
     }
 }
 
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al actualizar las ubicaciones');
-    }
-}
-
 function mostrarMapaRuta() {
     const mapDiv = document.getElementById('mapaRuta');
     
