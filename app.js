@@ -1229,13 +1229,53 @@ async function cargarVisitasRuta() {
     }
 
     const ruta = appState.rutasGuardadas.find(r => r.id === rutaId);
-    if (!ruta) return;
+    if (!ruta) {
+        container.innerHTML = '<p style="color: red;">❌ Ruta no encontrada</p>';
+        console.error('Ruta no encontrada:', rutaId);
+        return;
+    }
+
+    console.log('📋 Cargando ruta:', ruta);
+    console.log('📦 Total préstamos en ruta:', ruta.prestamos?.length || 0);
+    console.log('📦 Total préstamos en memoria:', appState.prestamos.length);
 
     container.innerHTML = '<h3>Visitas en esta Ruta</h3>';
 
+    if (!ruta.prestamos || ruta.prestamos.length === 0) {
+        container.innerHTML += '<p style="color: #856404; padding: 15px; background: #fff3cd; border-radius: 8px;">⚠️ Esta ruta no tiene préstamos asignados.</p>';
+        return;
+    }
+
+    let visitasMostradas = 0;
+    let visitasNoEncontradas = 0;
+
     for (const item of ruta.prestamos) {
+        console.log('🔍 Buscando préstamo ID:', item.prestamoId);
         const prestamo = appState.prestamos.find(p => p.id === item.prestamoId);
-        if (!prestamo) continue;
+        
+        if (!prestamo) {
+            console.warn('⚠️ Préstamo no encontrado:', item.prestamoId, 'Número:', item.numeroPrestamo);
+            visitasNoEncontradas++;
+            
+            // Mostrar la visita aunque no esté en memoria (usar datos de la ruta guardada)
+            const div = document.createElement('div');
+            div.className = 'ruta-item';
+            div.innerHTML = `
+                <h4>📍 Préstamo ${item.numeroPrestamo || 'N/A'}</h4>
+                <p><strong>Municipio:</strong> ${item.municipio || 'N/A'}</p>
+                <p style="color: #856404;">⚠️ Este préstamo no está en la base de datos actual</p>
+                ${item.tieneUbicacion ? `
+                    <p><strong>Ubicación planificada:</strong> ${item.ubicacion.lat}, ${item.ubicacion.lng}</p>
+                ` : `
+                    <p><strong>Ubicación:</strong> Sin GPS previo</p>
+                `}
+            `;
+            container.appendChild(div);
+            continue;
+        }
+
+        visitasMostradas++;
+        console.log('✅ Préstamo encontrado:', prestamo.numeroPrestamo);
 
         const div = document.createElement('div');
         div.className = `ruta-item ${prestamo.visitado ? 'visitado' : ''}`;
@@ -1271,6 +1311,15 @@ async function cargarVisitasRuta() {
             ` : ''}
         `;
         container.appendChild(div);
+    }
+
+    console.log(`📊 Resultado: ${visitasMostradas} visitas mostradas, ${visitasNoEncontradas} no encontradas`);
+
+    if (visitasNoEncontradas > 0) {
+        const warning = document.createElement('div');
+        warning.style.cssText = 'margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 8px; color: #856404;';
+        warning.innerHTML = `⚠️ ${visitasNoEncontradas} préstamo(s) de esta ruta no están en la base de datos actual. Puede que hayan sido eliminados.`;
+        container.appendChild(warning);
     }
 
     // Agregar event listeners a botones de marcar visitado
