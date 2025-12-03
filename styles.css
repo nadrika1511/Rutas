@@ -187,6 +187,37 @@ header h1 {
     cursor: not-allowed;
 }
 
+.btn-mini {
+    padding: 5px 12px;
+    font-size: 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-left: 10px;
+    transition: all 0.3s;
+}
+
+.btn-cambiar-sin-gps {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-cambiar-sin-gps:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+.gps-edit-input {
+    font-family: monospace;
+}
+
+.gps-edit-input:focus {
+    outline: none;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
 #importStatus,
 #distanciaInfo {
     margin-top: 15px;
