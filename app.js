@@ -231,11 +231,21 @@ function actualizarUICobradores() {
     const container = document.getElementById('cobradoresList');
     container.innerHTML = '';
 
+    // Obtener préstamos en rutas guardadas
+    const prestamosEnRutas = new Set();
+    appState.rutasGuardadas.forEach(ruta => {
+        ruta.prestamos.forEach(item => {
+            prestamosEnRutas.add(item.prestamoId);
+        });
+    });
+
     appState.cobradores.forEach(cobrador => {
         const prestamos = appState.prestamos.filter(p => p.cobrador === cobrador);
         const conUbicacion = prestamos.filter(p => p.ubicacion.tipo === 'coordenadas').length;
         const sinUbicacion = prestamos.filter(p => p.ubicacion.tipo === 'sin_visita').length;
         const visitados = prestamos.filter(p => p.visitado).length;
+        const enRutas = prestamos.filter(p => prestamosEnRutas.has(p.id)).length;
+        const disponibles = prestamos.length - visitados - enRutas;
 
         const card = document.createElement('div');
         card.className = 'cobrador-card';
@@ -247,16 +257,24 @@ function actualizarUICobradores() {
                     <div class="label">Total Préstamos</div>
                 </div>
                 <div class="stat-item">
-                    <div class="number">${conUbicacion}</div>
-                    <div class="label">Con Ubicación</div>
+                    <div class="number" style="color: #28a745;">${disponibles}</div>
+                    <div class="label">Disponibles</div>
                 </div>
                 <div class="stat-item">
-                    <div class="number">${sinUbicacion}</div>
-                    <div class="label">Sin Ubicación</div>
+                    <div class="number" style="color: #667eea;">${enRutas}</div>
+                    <div class="label">En Rutas</div>
                 </div>
                 <div class="stat-item">
                     <div class="number">${visitados}</div>
                     <div class="label">Visitados</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">${conUbicacion}</div>
+                    <div class="label">Con GPS</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">${sinUbicacion}</div>
+                    <div class="label">Sin GPS</div>
                 </div>
             </div>
         `;
@@ -300,17 +318,32 @@ async function generarRuta() {
 
     const puntoInicio = { lat, lng };
 
-    // Obtener préstamos del cobrador que NO han sido visitados
+    // Obtener IDs de préstamos que ya están en rutas guardadas
+    const prestamosEnRutas = new Set();
+    appState.rutasGuardadas.forEach(ruta => {
+        ruta.prestamos.forEach(item => {
+            prestamosEnRutas.add(item.prestamoId);
+        });
+    });
+
+    // Obtener préstamos del cobrador que NO han sido visitados Y NO están en rutas guardadas
     let prestamosCobrador = appState.prestamos.filter(p => 
-        p.cobrador === cobrador && !p.visitado
+        p.cobrador === cobrador && 
+        !p.visitado && 
+        !prestamosEnRutas.has(p.id) // Excluir los que ya están en rutas guardadas
     );
 
     // Separar con y sin ubicación
     const conUbicacion = prestamosCobrador.filter(p => p.ubicacion.tipo === 'coordenadas');
     const sinUbicacion = prestamosCobrador.filter(p => p.ubicacion.tipo === 'sin_visita');
 
+    if (conUbicacion.length === 0 && sinUbicacion.length === 0) {
+        alert('No hay préstamos disponibles para este cobrador. Todos los préstamos ya están en rutas guardadas o han sido visitados.');
+        return;
+    }
+
     if (conUbicacion.length === 0) {
-        alert('No hay préstamos con ubicación GPS para este cobrador');
+        alert('No hay préstamos con ubicación GPS disponibles para este cobrador');
         return;
     }
 
@@ -708,6 +741,9 @@ function mostrarRutaGenerada() {
                 <div class="number">${Math.round(tiempoTotal)} min</div>
                 <div class="label">Tiempo Viaje</div>
             </div>
+        </div>
+        <div style="margin-top: 15px; padding: 15px; background: #d1ecf1; border-radius: 8px; color: #0c5460;">
+            <strong>ℹ️ Nota:</strong> Esta ruta solo incluye préstamos que NO están en otras rutas guardadas y que NO han sido visitados.
         </div>
     `;
 
