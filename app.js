@@ -50,6 +50,7 @@ function initEventListeners() {
     document.getElementById('btnDescargarPDF').addEventListener('click', descargarPDF);
     document.getElementById('btnRegistrarGPS').addEventListener('click', registrarGPSManual);
     document.getElementById('rutaSelectVisita').addEventListener('change', cargarVisitasRuta);
+    document.getElementById('btnGenerarPDFRuta').addEventListener('click', generarPDFRutaDia);
 }
 
 // Establecer fecha actual
@@ -1191,7 +1192,7 @@ async function cargarRutasGuardadas() {
             });
         });
 
-        // Actualizar select de rutas
+        // Actualizar select de rutas en visitas
         const select = document.getElementById('rutaSelectVisita');
         select.innerHTML = '<option value="">Seleccione una ruta...</option>';
         
@@ -1201,6 +1202,38 @@ async function cargarRutasGuardadas() {
             option.textContent = `${ruta.cobrador} - ${ruta.fecha} (${ruta.prestamos.length} visitas)`;
             select.appendChild(option);
         });
+
+        // Actualizar select de rutas para PDF
+        const selectPDF = document.getElementById('rutaSelectPDF');
+        if (selectPDF) {
+            selectPDF.innerHTML = '<option value="">Seleccione una ruta...</option>';
+            
+            // Agrupar rutas por fecha
+            const rutasPorFecha = {};
+            appState.rutasGuardadas.forEach(ruta => {
+                if (!rutasPorFecha[ruta.fecha]) {
+                    rutasPorFecha[ruta.fecha] = [];
+                }
+                rutasPorFecha[ruta.fecha].push(ruta);
+            });
+
+            // Ordenar fechas descendente
+            const fechasOrdenadas = Object.keys(rutasPorFecha).sort().reverse();
+            
+            fechasOrdenadas.forEach(fecha => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = `📅 ${fecha}`;
+                
+                rutasPorFecha[fecha].forEach(ruta => {
+                    const option = document.createElement('option');
+                    option.value = ruta.id;
+                    option.textContent = `${ruta.cobrador} (${ruta.prestamos.length} visitas)`;
+                    optgroup.appendChild(option);
+                });
+                
+                selectPDF.appendChild(optgroup);
+            });
+        }
 
         // Actualizar select de préstamos para GPS manual
         const selectPrestamo = document.getElementById('prestamoManual');
@@ -1605,6 +1638,144 @@ function generarTablaDesviaciones() {
             ${(visitadosConDesviacion.reduce((sum, p) => sum + p.distanciaDesviacion, 0) / visitadosConDesviacion.length).toFixed(2)} km
         </p>
     `;
+}
+
+// ============== GENERAR PDF DE RUTA DEL DÍA ==============
+async function generarPDFRutaDia() {
+    const rutaId = document.getElementById('rutaSelectPDF').value;
+    
+    if (!rutaId) {
+        alert('Por favor selecciona una ruta');
+        return;
+    }
+
+    const ruta = appState.rutasGuardadas.find(r => r.id === rutaId);
+    if (!ruta) {
+        alert('Ruta no encontrada');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    let y = 20;
+    const lineHeight = 7;
+    const pageHeight = 280;
+
+    // Título
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.text('RUTA DE COBRANZA', 105, y, { align: 'center' });
+    y += 12;
+
+    // Información de la ruta
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Cobrador: ${ruta.cobrador}`, 20, y);
+    y += lineHeight;
+    doc.text(`Fecha: ${ruta.fecha}`, 20, y);
+    y += lineHeight;
+    doc.text(`Total de Visitas: ${ruta.prestamos.length}`, 20, y);
+    y += lineHeight + 5;
+
+    // Línea separadora
+    doc.setDrawColor(102, 126, 234);
+    doc.setLineWidth(0.5);
+    doc.line(20, y, 190, y);
+    y += 8;
+
+    // Encabezados de tabla
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text('No.', 20, y);
+    doc.text('Préstamo', 30, y);
+    doc.text('Cliente', 60, y);
+    doc.text('Dirección', 95, y);
+    doc.text('Municipio', 145, y);
+    doc.text('Depto', 175, y);
+    y += lineHeight;
+
+    // Línea debajo de encabezados
+    doc.setLineWidth(0.3);
+    doc.line(20, y - 2, 190, y - 2);
+    y += 2;
+
+    // Contenido
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+
+    for (let i = 0; i < ruta.prestamos.length; i++) {
+        const item = ruta.prestamos[i];
+        const prestamo = appState.prestamos.find(p => p.id === item.prestamoId);
+
+        // Verificar si necesitamos nueva página
+        if (y > pageHeight) {
+            doc.addPage();
+            y = 20;
+            
+            // Repetir encabezados en nueva página
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(10);
+            doc.text('No.', 20, y);
+            doc.text('Préstamo', 30, y);
+            doc.text('Cliente', 60, y);
+            doc.text('Dirección', 95, y);
+            doc.text('Municipio', 145, y);
+            doc.text('Depto', 175, y);
+            y += lineHeight;
+            doc.setLineWidth(0.3);
+            doc.line(20, y - 2, 190, y - 2);
+            y += 2;
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(9);
+        }
+
+        const numero = (i + 1).toString();
+        const numeroPrestamo = item.numeroPrestamo || 'N/A';
+        const nombreCliente = prestamo?.nombreCliente || item.nombreCliente || '';
+        const direccion = prestamo?.direccion || item.direccion || 'N/A';
+        const municipio = prestamo?.municipio || item.municipio || 'N/A';
+        const departamento = prestamo?.departamento || item.departamento || 'N/A';
+
+        // Limitar longitud de textos
+        const nombreCorto = nombreCliente.substring(0, 25);
+        const direccionCorta = direccion.substring(0, 35);
+        const municipioCorto = municipio.substring(0, 20);
+        const deptoCorto = departamento.substring(0, 10);
+
+        // Imprimir fila
+        doc.text(numero, 20, y);
+        doc.text(numeroPrestamo, 30, y);
+        doc.text(nombreCorto, 60, y);
+        doc.text(direccionCorta, 95, y);
+        doc.text(municipioCorto, 145, y);
+        doc.text(deptoCorto, 175, y);
+        y += lineHeight;
+
+        // Línea separadora cada 5 registros
+        if ((i + 1) % 5 === 0) {
+            doc.setDrawColor(220, 220, 220);
+            doc.setLineWidth(0.1);
+            doc.line(20, y - 2, 190, y - 2);
+        }
+    }
+
+    // Pie de página
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128);
+        doc.text(`Página ${i} de ${totalPages}`, 105, 290, { align: 'center' });
+        doc.text(`Generado: ${new Date().toLocaleString('es-GT')}`, 20, 290);
+        doc.setTextColor(0);
+    }
+
+    // Descargar
+    const nombreArchivo = `Ruta_${ruta.cobrador.replace(/ /g, '_')}_${ruta.fecha}.pdf`;
+    doc.save(nombreArchivo);
+
+    alert('✅ PDF generado exitosamente');
 }
 
 // Exportar funciones globales si es necesario
