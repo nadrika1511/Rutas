@@ -1,4 +1,5 @@
-// app.js
+// app.js - Sistema de Rutas v2.1 - Distancias Mejoradas
+// Última actualización: 2025-12-03
 import { db, collection, addDoc, getDocs, updateDoc, doc, query, where, orderBy } from './firebase-config.js';
 
 // Estado global de la aplicación
@@ -318,6 +319,7 @@ async function generarRuta() {
     // Intercalar préstamos sin ubicación por municipio
     const rutaFinal = [];
     let totalVisitas = 0;
+    const sinUbicacionAgregados = new Set(); // Rastrear préstamos sin ubicación ya agregados
     
     for (const item of rutaOptimizada) {
         // Verificar si aún podemos agregar visitas
@@ -330,9 +332,10 @@ async function generarRuta() {
         });
         totalVisitas++;
         
-        // Agregar visitas sin ubicación del mismo municipio hasta llenar el límite
+        // Agregar visitas sin ubicación del mismo municipio (solo las que NO se han agregado)
         const sinUbicacionMunicipio = sinUbicacion.filter(p => 
-            p.municipio === item.prestamo.municipio
+            p.municipio === item.prestamo.municipio && 
+            !sinUbicacionAgregados.has(p.id) // No agregar si ya fue agregado
         );
         
         for (const prestamo of sinUbicacionMunicipio) {
@@ -346,6 +349,7 @@ async function generarRuta() {
                 municipioReferencia: item.prestamo.municipio
             });
             totalVisitas++;
+            sinUbicacionAgregados.add(prestamo.id); // Marcar como agregado
         }
     }
 
