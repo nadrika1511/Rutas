@@ -117,8 +117,24 @@
         <!-- TAB: REPORTES -->
         <div class="tab-content" id="reportes">
             <div class="card">
-                <h2>Reportes y Estadísticas</h2>
+                <h2>📊 Reportes y Estadísticas</h2>
                 <div id="estadisticas"></div>
+            </div>
+
+            <div class="card">
+                <h2>📄 Imprimir Ruta del Día</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">
+                    Genera un PDF con el detalle completo de una ruta específica para imprimir y entregar al cobrador.
+                </p>
+                
+                <div class="form-group">
+                    <label>Seleccionar Ruta:</label>
+                    <select id="rutaSelectPDF"></select>
+                </div>
+
+                <button id="btnGenerarPDFRuta" class="btn btn-warning" style="font-size: 18px;">
+                    📄 Generar PDF de Ruta
+                </button>
             </div>
         </div>
     </div>
