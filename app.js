@@ -366,6 +366,8 @@ function optimizarRuta(prestamos, puntoInicio, minimoVisitas) {
     const ruta = [];
     const disponibles = [...prestamos];
     let actual = puntoInicio;
+    let municipioActual = null;
+    let departamentoActual = null;
 
     // Tomar hasta el mínimo de visitas usando algoritmo nearest neighbor
     while (disponibles.length > 0 && ruta.length < minimoVisitas) {
@@ -373,9 +375,11 @@ function optimizarRuta(prestamos, puntoInicio, minimoVisitas) {
         let indiceMasCercano = -1;
 
         disponibles.forEach((prestamo, index) => {
-            const distancia = calcularDistancia(
+            const distancia = calcularDistanciaReal(
                 actual.lat, actual.lng,
-                prestamo.ubicacion.lat, prestamo.ubicacion.lng
+                prestamo.ubicacion.lat, prestamo.ubicacion.lng,
+                prestamo.municipio,
+                prestamo.departamento
             );
 
             if (distancia < menorDistancia) {
@@ -389,9 +393,11 @@ function optimizarRuta(prestamos, puntoInicio, minimoVisitas) {
             ruta.push({
                 prestamo,
                 distanciaDesdeAnterior: menorDistancia,
-                tiempoEstimado: calcularTiempoViaje(menorDistancia)
+                tiempoEstimado: calcularTiempoViaje(menorDistancia, prestamo.municipio)
             });
             actual = { lat: prestamo.ubicacion.lat, lng: prestamo.ubicacion.lng };
+            municipioActual = prestamo.municipio;
+            departamentoActual = prestamo.departamento;
         }
     }
 
@@ -399,7 +405,7 @@ function optimizarRuta(prestamos, puntoInicio, minimoVisitas) {
 }
 
 function calcularDistancia(lat1, lng1, lat2, lng2) {
-    // Fórmula de Haversine
+    // Fórmula de Haversine (distancia lineal)
     const R = 6371; // Radio de la Tierra en km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
@@ -409,16 +415,255 @@ function calcularDistancia(lat1, lng1, lat2, lng2) {
               Math.sin(dLng/2) * Math.sin(dLng/2);
     
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distancia = R * c;
+    const distanciaLineal = R * c;
     
-    return distancia;
+    return distanciaLineal;
 }
 
-function calcularTiempoViaje(distanciaKm) {
-    // Asumiendo velocidad promedio de 30 km/h en ciudad
-    const velocidadPromedio = 30;
+function calcularDistanciaReal(lat1, lng1, lat2, lng2, municipio, departamento) {
+    // Primero calculamos la distancia lineal
+    const distanciaLineal = calcularDistancia(lat1, lng1, lat2, lng2);
+    
+    // Factores de corrección por municipio (basados en estructura urbana y vialidad)
+    const factoresMunicipio = {
+        // Zona Metropolitana - Alto tráfico, muchas vueltas
+        'GUATEMALA': 1.40,
+        'MIXCO': 1.38,
+        'VILLA NUEVA': 1.35,
+        'VILLA CANALES': 1.32,
+        'SAN MIGUEL PETAPA': 1.35,
+        'AMATITLAN': 1.30,
+        'SAN JUAN SACATEPEQUEZ': 1.28,
+        'SANTA CATARINA PINULA': 1.30,
+        'SAN JOSE PINULA': 1.28,
+        'FRAIJANES': 1.25,
+        'PALENCIA': 1.25,
+        'CHINAUTLA': 1.32,
+        'SAN PEDRO AYAMPUC': 1.28,
+        'SAN PEDRO SACATEPEQUEZ': 1.30,
+        'SAN RAYMUNDO': 1.22,
+        
+        // Escuintla - Urbano medio
+        'ESCUINTLA': 1.30,
+        'PUERTO DE SAN JOSE': 1.25,
+        'IZTAPA': 1.22,
+        'PALIN': 1.28,
+        'SAN VICENTE PACAYA': 1.23,
+        'SIPACATE': 1.20,
+        'LA GOMERA': 1.22,
+        'MASAGUA': 1.23,
+        'SANTA LUCIA COTZUMALGUAPA': 1.28,
+        'LA DEMOCRACIA': 1.22,
+        'SIQUINALA': 1.20,
+        
+        // Suchitepéquez - Zonas agrícolas
+        'MAZATENANGO': 1.28,
+        'COATEPEQUE': 1.25,
+        'RETALHULEU': 1.26,
+        'PATULUL': 1.22,
+        'SAN ANTONIO SUCHITEPEQUEZ': 1.20,
+        'SANTO DOMINGO SUCHITEPEQUEZ': 1.20,
+        'SAN PABLO JOCOPILAS': 1.18,
+        'CUYOTENANGO': 1.22,
+        'CHICACAO': 1.20,
+        'SAN JOSE EL IDOLO': 1.19,
+        'PUEBLO NUEVO': 1.20,
+        'RIO BRAVO': 1.18,
+        'SAMAYAC': 1.20,
+        'SAN BERNARDINO': 1.18,
+        'SAN GABRIEL': 1.18,
+        'SAN LORENZO': 1.20,
+        'SAN MIGUEL PANAM': 1.18,
+        
+        // San Marcos - Montañoso
+        'SAN MARCOS': 1.32,
+        'MALACATAN': 1.25,
+        'PAJAPITA': 1.22,
+        'EL TUMBADOR': 1.23,
+        'AYUTLA': 1.20,
+        'OCOS': 1.20,
+        'TECUN UMAN': 1.24,
+        'COATEPEQUE': 1.25,
+        'CATARINA': 1.18,
+        'ESQUIPULAS PALO GORDO': 1.20,
+        'LA REFORMA': 1.20,
+        'NUEVO PROGRESO': 1.19,
+        'SIBINAL': 1.18,
+        'TACANA': 1.20,
+        'TAJUMULCO': 1.20,
+        
+        // Alta Verapaz - Rural/montañoso
+        'COBAN': 1.30,
+        'SAN PEDRO CARCHA': 1.25,
+        'SAN JUAN CHAMELCO': 1.22,
+        'TACTIC': 1.20,
+        'SANTA MARIA CAHABON': 1.20,
+        'LANQUIN': 1.18,
+        'SENAHU': 1.18,
+        'CHISEC': 1.18,
+        'CHAHAL': 1.18,
+        'FRAY BARTOLOME DE LAS CASAS': 1.18,
+        'RAXRUHA': 1.18,
+        'SANTA CRUZ VERAPAZ': 1.20,
+        'SANTA CATARINA LA TINTA': 1.18,
+        'PANZOS': 1.20,
+        
+        // Quetzaltenango - Urbano/montañoso
+        'QUETZALTENANGO': 1.32,
+        'SALCAJA': 1.25,
+        'SAN MATEO': 1.22,
+        'OLINTEPEQUE': 1.24,
+        'SAN CARLOS SIJA': 1.20,
+        'SIBILIA': 1.18,
+        'CABRICAN': 1.20,
+        'CAJOLA': 1.18,
+        'SAN MIGUEL SIGUILA': 1.20,
+        'OSTUNCALCO': 1.22,
+        'SAN JUAN OSTUNCALCO': 1.20,
+        'SAN MARTIN SACATEPEQUEZ': 1.20,
+        'ALMOLONGA': 1.22,
+        'CANTEL': 1.24,
+        'ZUNIL': 1.20,
+        'COLOMBA': 1.20,
+        'COATEPEQUE': 1.25,
+        'FLORES COSTA CUCA': 1.18,
+        'GENOVA': 1.18,
+        'PALESTINA DE LOS ALTOS': 1.18,
+        
+        // Retalhuleu - Costa
+        'RETALHULEU': 1.26,
+        'SAN SEBASTIAN': 1.20,
+        'SANTA CRUZ MULUA': 1.18,
+        'SAN MARTIN ZAPOTITLAN': 1.20,
+        'SAN FELIPE': 1.20,
+        'SAN ANDRES VILLA SECA': 1.22,
+        'CHAMPERICO': 1.22,
+        'NUEVO SAN CARLOS': 1.18,
+        'EL ASINTAL': 1.20,
+        
+        // Petén - Rural extenso
+        'FLORES': 1.35,
+        'SANTA ELENA': 1.32,
+        'SAN BENITO': 1.30,
+        'SAN ANDRES': 1.20,
+        'LA LIBERTAD': 1.22,
+        'SAN FRANCISCO': 1.18,
+        'SAYAXCHE': 1.20,
+        'MELCHOR DE MENCOS': 1.20,
+        'POPTUN': 1.20,
+        'DOLORES': 1.18,
+        
+        // Izabal - Costa/puerto
+        'PUERTO BARRIOS': 1.28,
+        'LIVINGSTON': 1.25,
+        'EL ESTOR': 1.22,
+        'MORALES': 1.24,
+        'LOS AMATES': 1.20,
+        
+        // Sacatepéquez - Turístico
+        'ANTIGUA GUATEMALA': 1.32,
+        'JOCOTENANGO': 1.28,
+        'CIUDAD VIEJA': 1.28,
+        'SAN MIGUEL DUENAS': 1.25,
+        'ALOTENANGO': 1.22,
+        'SAN ANTONIO AGUAS CALIENTES': 1.24,
+        'SANTA MARIA DE JESUS': 1.23,
+        
+        // Santa Rosa - Mixto
+        'CUILAPA': 1.26,
+        'BARBERENA': 1.24,
+        'SANTA ROSA DE LIMA': 1.22,
+        'CASILLAS': 1.20,
+        'SAN RAFAEL LAS FLORES': 1.20,
+        'ORATORIO': 1.20,
+        'SAN JUAN TECUACO': 1.18,
+        'CHIQUIMULILLA': 1.22,
+        'TAXISCO': 1.20,
+        'SANTA MARIA IXHUATAN': 1.18,
+        'GUAZACAPAN': 1.20,
+        'SANTA CRUZ NARANJO': 1.18,
+        'PUEBLO NUEVO VINAS': 1.18,
+        'NUEVA SANTA ROSA': 1.20,
+        
+        // Totonicapán - Montañoso
+        'TOTONICAPAN': 1.28,
+        'SAN CRISTOBAL TOTONICAPAN': 1.24,
+        'SAN FRANCISCO EL ALTO': 1.24,
+        'SAN ANDRES XECUL': 1.22,
+        'MOMOSTENANGO': 1.22,
+        'SANTA MARIA CHIQUIMULA': 1.20,
+        'SANTA LUCIA LA REFORMA': 1.20,
+        'SAN BARTOLO': 1.18
+    };
+    
+    // Factores por departamento (backup si no encuentra municipio)
+    const factoresDepartamento = {
+        'GUATEMALA': 1.35,
+        'ESCUINTLA': 1.26,
+        'SUCHITEPEQUEZ': 1.22,
+        'SAN MARCOS': 1.24,
+        'ALTA VERAPAZ': 1.22,
+        'QUETZALTENANGO': 1.26,
+        'RETALHULEU': 1.22,
+        'PETEN': 1.25,
+        'IZABAL': 1.24,
+        'SACATEPEQUEZ': 1.28,
+        'SANTA ROSA': 1.22,
+        'TOTONICAPAN': 1.24,
+        'CHIMALTENANGO': 1.26,
+        'SOLOLA': 1.24,
+        'QUICHE': 1.22,
+        'BAJA VERAPAZ': 1.22,
+        'ZACAPA': 1.20,
+        'CHIQUIMULA': 1.20,
+        'JALAPA': 1.20,
+        'JUTIAPA': 1.20,
+        'EL PROGRESO': 1.20,
+        'HUEHUETENANGO': 1.24
+    };
+    
+    // Obtener factor de corrección
+    let factor = factoresMunicipio[municipio?.toUpperCase()] || 
+                 factoresDepartamento[departamento?.toUpperCase()] || 
+                 1.25; // Factor por defecto
+    
+    // Ajuste adicional por distancia (rutas largas son más directas)
+    if (distanciaLineal > 50) {
+        factor *= 0.95; // Reducir 5% en rutas largas
+    } else if (distanciaLineal < 5) {
+        factor *= 1.05; // Aumentar 5% en rutas muy cortas (más vueltas)
+    }
+    
+    const distanciaReal = distanciaLineal * factor;
+    
+    return distanciaReal;
+}
+
+function calcularTiempoViaje(distanciaKm, municipio) {
+    // Velocidades promedio por tipo de zona (km/h)
+    const velocidades = {
+        // Zona metropolitana - Tráfico pesado
+        'GUATEMALA': 25,
+        'MIXCO': 25,
+        'VILLA NUEVA': 28,
+        'VILLA CANALES': 30,
+        
+        // Ciudades intermedias
+        'ESCUINTLA': 35,
+        'COATEPEQUE': 35,
+        'MAZATENANGO': 35,
+        'RETALHULEU': 35,
+        'QUETZALTENANGO': 30,
+        'COBAN': 30,
+        
+        // Zonas costeras/rurales
+        'default': 40
+    };
+    
+    const velocidadPromedio = velocidades[municipio?.toUpperCase()] || velocidades['default'];
     const horas = distanciaKm / velocidadPromedio;
     const minutos = Math.round(horas * 60);
+    
     return minutos;
 }
 
@@ -845,9 +1090,11 @@ async function registrarGPSManual() {
     // Calcular distancia con la ubicación original de la ruta
     let distanciaDesviacion = 0;
     if (prestamo.ubicacion.lat && prestamo.ubicacion.lng) {
-        distanciaDesviacion = calcularDistancia(
+        distanciaDesviacion = calcularDistanciaReal(
             prestamo.ubicacion.lat, prestamo.ubicacion.lng,
-            lat, lng
+            lat, lng,
+            prestamo.municipio,
+            prestamo.departamento
         );
     }
 
@@ -1058,7 +1305,11 @@ async function marcarComoVisitado(prestamoId, gpsStr, ubicacionOriginal) {
         if (ubicacionOriginal && ubicacionOriginal !== ',') {
             const [latOrig, lngOrig] = ubicacionOriginal.split(',').map(s => parseFloat(s.trim()));
             if (!isNaN(latOrig) && !isNaN(lngOrig)) {
-                distanciaDesviacion = calcularDistancia(latOrig, lngOrig, lat, lng);
+                distanciaDesviacion = calcularDistanciaReal(
+                    latOrig, lngOrig, lat, lng,
+                    prestamo.municipio,
+                    prestamo.departamento
+                );
             }
         }
 
