@@ -1662,53 +1662,52 @@ async function generarPDFRutaDia() {
     }
 
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    // Crear PDF en formato horizontal (landscape)
+    const doc = new jsPDF('landscape', 'mm', 'letter'); // 279mm x 216mm
 
-    let y = 20;
-    const lineHeight = 7;
-    const pageHeight = 280;
+    let y = 15;
+    const lineHeight = 6;
+    const pageHeight = 200;
 
     // Título
-    doc.setFontSize(20);
+    doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
-    doc.text('RUTA DE COBRANZA', 105, y, { align: 'center' });
-    y += 12;
+    doc.text('RUTA DE COBRANZA', 140, y, { align: 'center' });
+    y += 10;
 
     // Información de la ruta
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont(undefined, 'normal');
-    doc.text(`Cobrador: ${ruta.cobrador}`, 20, y);
-    y += lineHeight;
-    doc.text(`Fecha: ${ruta.fecha}`, 20, y);
-    y += lineHeight;
-    doc.text(`Total de Visitas: ${ruta.prestamos.length}`, 20, y);
-    y += lineHeight + 5;
+    doc.text(`Cobrador: ${ruta.cobrador}`, 15, y);
+    doc.text(`Fecha: ${ruta.fecha}`, 120, y);
+    doc.text(`Total de Visitas: ${ruta.prestamos.length}`, 200, y);
+    y += 8;
 
     // Línea separadora
     doc.setDrawColor(102, 126, 234);
     doc.setLineWidth(0.5);
-    doc.line(20, y, 190, y);
-    y += 8;
+    doc.line(15, y, 265, y);
+    y += 6;
 
-    // Encabezados de tabla
-    doc.setFontSize(10);
+    // Encabezados de tabla con posiciones ajustadas para landscape
+    doc.setFontSize(9);
     doc.setFont(undefined, 'bold');
-    doc.text('No.', 20, y);
-    doc.text('Préstamo', 30, y);
-    doc.text('Cliente', 60, y);
+    doc.text('No.', 15, y);
+    doc.text('Préstamo', 25, y);
+    doc.text('Cliente', 50, y);
     doc.text('Dirección', 95, y);
-    doc.text('Municipio', 145, y);
-    doc.text('Depto', 175, y);
-    y += lineHeight;
+    doc.text('Municipio', 180, y);
+    doc.text('Departamento', 225, y);
+    y += 5;
 
     // Línea debajo de encabezados
     doc.setLineWidth(0.3);
-    doc.line(20, y - 2, 190, y - 2);
-    y += 2;
+    doc.line(15, y - 1, 265, y - 1);
+    y += 1;
 
     // Contenido
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
 
     for (let i = 0; i < ruta.prestamos.length; i++) {
         const item = ruta.prestamos[i];
@@ -1717,52 +1716,52 @@ async function generarPDFRutaDia() {
         // Verificar si necesitamos nueva página
         if (y > pageHeight) {
             doc.addPage();
-            y = 20;
+            y = 15;
             
             // Repetir encabezados en nueva página
             doc.setFont(undefined, 'bold');
-            doc.setFontSize(10);
-            doc.text('No.', 20, y);
-            doc.text('Préstamo', 30, y);
-            doc.text('Cliente', 60, y);
-            doc.text('Dirección', 95, y);
-            doc.text('Municipio', 145, y);
-            doc.text('Depto', 175, y);
-            y += lineHeight;
-            doc.setLineWidth(0.3);
-            doc.line(20, y - 2, 190, y - 2);
-            y += 2;
-            doc.setFont(undefined, 'normal');
             doc.setFontSize(9);
+            doc.text('No.', 15, y);
+            doc.text('Préstamo', 25, y);
+            doc.text('Cliente', 50, y);
+            doc.text('Dirección', 95, y);
+            doc.text('Municipio', 180, y);
+            doc.text('Departamento', 225, y);
+            y += 5;
+            doc.setLineWidth(0.3);
+            doc.line(15, y - 1, 265, y - 1);
+            y += 1;
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(8);
         }
 
-        const numero = (i + 1).toString();
+        const numero = String(i + 1);
         const numeroPrestamo = String(item.numeroPrestamo || prestamo?.numeroPrestamo || 'N/A');
         const nombreCliente = String(prestamo?.nombreCliente || item.nombreCliente || '');
         const direccion = String(prestamo?.direccion || item.direccion || 'N/A');
         const municipio = String(prestamo?.municipio || item.municipio || 'N/A');
         const departamento = String(prestamo?.departamento || item.departamento || 'N/A');
 
-        // Limitar longitud de textos
-        const nombreCorto = nombreCliente.substring(0, 25);
-        const direccionCorta = direccion.substring(0, 35);
-        const municipioCorto = municipio.substring(0, 20);
-        const deptoCorto = departamento.substring(0, 10);
+        // Limitar longitud de textos para que quepan en las columnas
+        const nombreCorto = nombreCliente.length > 30 ? nombreCliente.substring(0, 28) + '..' : nombreCliente;
+        const direccionCorta = direccion.length > 55 ? direccion.substring(0, 53) + '..' : direccion;
+        const municipioCorto = municipio.length > 28 ? municipio.substring(0, 26) + '..' : municipio;
+        const deptoCorto = departamento.length > 25 ? departamento.substring(0, 23) + '..' : departamento;
 
         // Imprimir fila
-        doc.text(numero, 20, y);
-        doc.text(numeroPrestamo, 30, y);
-        doc.text(nombreCorto, 60, y);
+        doc.text(numero, 15, y);
+        doc.text(numeroPrestamo, 25, y);
+        doc.text(nombreCorto, 50, y);
         doc.text(direccionCorta, 95, y);
-        doc.text(municipioCorto, 145, y);
-        doc.text(deptoCorto, 175, y);
+        doc.text(municipioCorto, 180, y);
+        doc.text(deptoCorto, 225, y);
         y += lineHeight;
 
         // Línea separadora cada 5 registros
         if ((i + 1) % 5 === 0) {
             doc.setDrawColor(220, 220, 220);
             doc.setLineWidth(0.1);
-            doc.line(20, y - 2, 190, y - 2);
+            doc.line(15, y - 2, 265, y - 2);
         }
     }
 
@@ -1772,8 +1771,8 @@ async function generarPDFRutaDia() {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(128);
-        doc.text(`Página ${i} de ${totalPages}`, 105, 290, { align: 'center' });
-        doc.text(`Generado: ${new Date().toLocaleString('es-GT')}`, 20, 290);
+        doc.text(`Página ${i} de ${totalPages}`, 140, 210, { align: 'center' });
+        doc.text(`Generado: ${new Date().toLocaleString('es-GT')}`, 15, 210);
         doc.setTextColor(0);
     }
 
