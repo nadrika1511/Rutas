@@ -1720,15 +1720,20 @@ async function generarPDFRutaDia() {
         const municipio = String(prestamo?.municipio || item.municipio || 'N/A');
         const departamento = String(prestamo?.departamento || item.departamento || 'N/A');
 
-        // Limitar longitud de textos
-        const nombreCorto = nombreCliente.length > 32 ? nombreCliente.substring(0, 30) + '..' : nombreCliente;
-        const municipioCorto = municipio.length > 30 ? municipio.substring(0, 28) + '..' : municipio;
-        const deptoCorto = departamento.length > 25 ? departamento.substring(0, 23) + '..' : departamento;
+        // Dividir textos en múltiples líneas (wrap text) con anchos específicos
+        const nombreLineas = doc.splitTextToSize(nombreCliente || '-', 42); // 42mm de ancho
+        const direccionLineas = doc.splitTextToSize(direccion, 85); // 85mm de ancho
+        const municipioLineas = doc.splitTextToSize(municipio, 40); // 40mm de ancho
+        const departamentoLineas = doc.splitTextToSize(departamento, 35); // 35mm de ancho
 
-        // Dividir dirección en múltiples líneas (wrap text)
-        const maxAnchoDireccion = 85; // Ancho en mm para la columna de dirección
-        const direccionLineas = doc.splitTextToSize(direccion, maxAnchoDireccion);
-        const alturaFila = Math.max(lineHeight, direccionLineas.length * lineHeight);
+        // Calcular altura de la fila basado en la columna con más líneas
+        const maxLineas = Math.max(
+            nombreLineas.length,
+            direccionLineas.length,
+            municipioLineas.length,
+            departamentoLineas.length
+        );
+        const alturaFila = maxLineas * lineHeight;
 
         // Verificar si necesitamos nueva página
         if (y + alturaFila > pageHeight) {
@@ -1758,15 +1763,33 @@ async function generarPDFRutaDia() {
         // Imprimir columnas simples (una línea)
         doc.text(numero, 17, y);
         doc.text(numeroPrestamo, 28, y);
-        doc.text(nombreCorto, 53, y);
-        doc.text(municipioCorto, 185, y);
-        doc.text(deptoCorto, 228, y);
+
+        // Imprimir nombre del cliente con múltiples líneas
+        let yNombre = y;
+        nombreLineas.forEach(linea => {
+            doc.text(linea, 53, yNombre);
+            yNombre += lineHeight;
+        });
 
         // Imprimir dirección con múltiples líneas
         let yDireccion = y;
         direccionLineas.forEach(linea => {
             doc.text(linea, 98, yDireccion);
             yDireccion += lineHeight;
+        });
+
+        // Imprimir municipio con múltiples líneas
+        let yMunicipio = y;
+        municipioLineas.forEach(linea => {
+            doc.text(linea, 185, yMunicipio);
+            yMunicipio += lineHeight;
+        });
+
+        // Imprimir departamento con múltiples líneas
+        let yDepartamento = y;
+        departamentoLineas.forEach(linea => {
+            doc.text(linea, 228, yDepartamento);
+            yDepartamento += lineHeight;
         });
 
         // Avanzar Y según la altura de la fila
