@@ -1666,7 +1666,7 @@ async function generarPDFRutaDia() {
     const doc = new jsPDF('landscape', 'mm', 'letter'); // 279mm x 216mm
 
     let y = 15;
-    const lineHeight = 6;
+    const lineHeight = 5;
     const pageHeight = 200;
 
     // Título
@@ -1692,18 +1692,18 @@ async function generarPDFRutaDia() {
     // Encabezados de tabla con posiciones ajustadas para landscape
     doc.setFontSize(9);
     doc.setFont(undefined, 'bold');
-    doc.text('No.', 15, y);
-    doc.text('Préstamo', 25, y);
-    doc.text('Cliente', 50, y);
-    doc.text('Dirección', 95, y);
-    doc.text('Municipio', 180, y);
-    doc.text('Departamento', 225, y);
+    doc.text('No.', 17, y);
+    doc.text('Préstamo', 28, y);
+    doc.text('Cliente', 53, y);
+    doc.text('Dirección', 98, y);
+    doc.text('Municipio', 185, y);
+    doc.text('Departamento', 228, y);
     y += 5;
 
     // Línea debajo de encabezados
     doc.setLineWidth(0.3);
     doc.line(15, y - 1, 265, y - 1);
-    y += 1;
+    y += 2;
 
     // Contenido
     doc.setFont(undefined, 'normal');
@@ -1713,28 +1713,6 @@ async function generarPDFRutaDia() {
         const item = ruta.prestamos[i];
         const prestamo = appState.prestamos.find(p => p.id === item.prestamoId);
 
-        // Verificar si necesitamos nueva página
-        if (y > pageHeight) {
-            doc.addPage();
-            y = 15;
-            
-            // Repetir encabezados en nueva página
-            doc.setFont(undefined, 'bold');
-            doc.setFontSize(9);
-            doc.text('No.', 15, y);
-            doc.text('Préstamo', 25, y);
-            doc.text('Cliente', 50, y);
-            doc.text('Dirección', 95, y);
-            doc.text('Municipio', 180, y);
-            doc.text('Departamento', 225, y);
-            y += 5;
-            doc.setLineWidth(0.3);
-            doc.line(15, y - 1, 265, y - 1);
-            y += 1;
-            doc.setFont(undefined, 'normal');
-            doc.setFontSize(8);
-        }
-
         const numero = String(i + 1);
         const numeroPrestamo = String(item.numeroPrestamo || prestamo?.numeroPrestamo || 'N/A');
         const nombreCliente = String(prestamo?.nombreCliente || item.nombreCliente || '');
@@ -1742,27 +1720,63 @@ async function generarPDFRutaDia() {
         const municipio = String(prestamo?.municipio || item.municipio || 'N/A');
         const departamento = String(prestamo?.departamento || item.departamento || 'N/A');
 
-        // Limitar longitud de textos para que quepan en las columnas
-        const nombreCorto = nombreCliente.length > 30 ? nombreCliente.substring(0, 28) + '..' : nombreCliente;
-        const direccionCorta = direccion.length > 55 ? direccion.substring(0, 53) + '..' : direccion;
-        const municipioCorto = municipio.length > 28 ? municipio.substring(0, 26) + '..' : municipio;
+        // Limitar longitud de textos
+        const nombreCorto = nombreCliente.length > 32 ? nombreCliente.substring(0, 30) + '..' : nombreCliente;
+        const municipioCorto = municipio.length > 30 ? municipio.substring(0, 28) + '..' : municipio;
         const deptoCorto = departamento.length > 25 ? departamento.substring(0, 23) + '..' : departamento;
 
-        // Imprimir fila
-        doc.text(numero, 15, y);
-        doc.text(numeroPrestamo, 25, y);
-        doc.text(nombreCorto, 50, y);
-        doc.text(direccionCorta, 95, y);
-        doc.text(municipioCorto, 180, y);
-        doc.text(deptoCorto, 225, y);
-        y += lineHeight;
+        // Dividir dirección en múltiples líneas (wrap text)
+        const maxAnchoDireccion = 85; // Ancho en mm para la columna de dirección
+        const direccionLineas = doc.splitTextToSize(direccion, maxAnchoDireccion);
+        const alturaFila = Math.max(lineHeight, direccionLineas.length * lineHeight);
 
-        // Línea separadora cada 5 registros
-        if ((i + 1) % 5 === 0) {
-            doc.setDrawColor(220, 220, 220);
-            doc.setLineWidth(0.1);
-            doc.line(15, y - 2, 265, y - 2);
+        // Verificar si necesitamos nueva página
+        if (y + alturaFila > pageHeight) {
+            doc.addPage();
+            y = 15;
+            
+            // Repetir encabezados en nueva página
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(9);
+            doc.text('No.', 17, y);
+            doc.text('Préstamo', 28, y);
+            doc.text('Cliente', 53, y);
+            doc.text('Dirección', 98, y);
+            doc.text('Municipio', 185, y);
+            doc.text('Departamento', 228, y);
+            y += 5;
+            doc.setLineWidth(0.3);
+            doc.line(15, y - 1, 265, y - 1);
+            y += 2;
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(8);
         }
+
+        // Guardar posición Y inicial para esta fila
+        const yInicial = y;
+
+        // Imprimir columnas simples (una línea)
+        doc.text(numero, 17, y);
+        doc.text(numeroPrestamo, 28, y);
+        doc.text(nombreCorto, 53, y);
+        doc.text(municipioCorto, 185, y);
+        doc.text(deptoCorto, 228, y);
+
+        // Imprimir dirección con múltiples líneas
+        let yDireccion = y;
+        direccionLineas.forEach(linea => {
+            doc.text(linea, 98, yDireccion);
+            yDireccion += lineHeight;
+        });
+
+        // Avanzar Y según la altura de la fila
+        y += alturaFila;
+
+        // Línea separadora después de cada registro
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.1);
+        doc.line(15, y, 265, y);
+        y += 1;
     }
 
     // Pie de página
