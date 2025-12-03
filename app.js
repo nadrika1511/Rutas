@@ -1737,11 +1737,11 @@ async function generarPDFRutaDia() {
         }
 
         const numero = (i + 1).toString();
-        const numeroPrestamo = item.numeroPrestamo || 'N/A';
-        const nombreCliente = prestamo?.nombreCliente || item.nombreCliente || '';
-        const direccion = prestamo?.direccion || item.direccion || 'N/A';
-        const municipio = prestamo?.municipio || item.municipio || 'N/A';
-        const departamento = prestamo?.departamento || item.departamento || 'N/A';
+        const numeroPrestamo = String(item.numeroPrestamo || prestamo?.numeroPrestamo || 'N/A');
+        const nombreCliente = String(prestamo?.nombreCliente || item.nombreCliente || '');
+        const direccion = String(prestamo?.direccion || item.direccion || 'N/A');
+        const municipio = String(prestamo?.municipio || item.municipio || 'N/A');
+        const departamento = String(prestamo?.departamento || item.departamento || 'N/A');
 
         // Limitar longitud de textos
         const nombreCorto = nombreCliente.substring(0, 25);
