@@ -152,13 +152,32 @@ async function procesarDatos(datos) {
     const prestamosRef = collection(db, 'prestamos');
     const totalRegistros = datos.length;
     
+    // Cargar préstamos existentes para actualizar en lugar de duplicar
+    actualizarProgreso(55, 'Cargando datos existentes...');
+    const prestamosExistentesSnapshot = await getDocs(prestamosRef);
+    const prestamosExistentes = {};
+    
+    prestamosExistentesSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const clave = `${data.numeroPrestamo}-${data.tipoVisita}`;
+        prestamosExistentes[clave] = {
+            id: doc.id,
+            ...data
+        };
+    });
+    
+    console.log(`📦 ${Object.keys(prestamosExistentes).length} préstamos existentes en Firebase`);
+    
+    let actualizados = 0;
+    let nuevos = 0;
+    
     for (let i = 0; i < datos.length; i++) {
         const row = datos[i];
         
         // Actualizar progreso cada 10 registros
         if (i % 10 === 0) {
             const progreso = 60 + Math.floor((i / totalRegistros) * 25);
-            actualizarProgreso(progreso, `Guardando ${i + 1} de ${totalRegistros}...`);
+            actualizarProgreso(progreso, `Procesando ${i + 1} de ${totalRegistros}...`);
         }
         
         const ubicacion = extraerCoordenadas(row['Ubicación'] || row['UBICACION'] || '');
@@ -172,14 +191,14 @@ async function procesarDatos(datos) {
         }
         
         // Detectar dirección con múltiples variantes posibles
-        const direccion = row['Dirección Domiciliar'] || 
+        const direccion = row['Dirección'] ||
+                         row['DIRECCIÓN'] ||
+                         row['Direccion'] || 
+                         row['DIRECCION'] ||
+                         row['Dirección Domiciliar'] || 
                          row['Direccion Domiciliar'] || 
                          row['DIRECCIÓN DOMICILIAR'] || 
                          row['DIRECCION DOMICILIAR'] ||
-                         row['Direccion'] || 
-                         row['DIRECCION'] ||
-                         row['Dirección'] ||
-                         row['DIRECCIÓN'] ||
                          row['Direccion Laboral'] ||
                          row['DIRECCION LABORAL'] ||
                          row['Dirección Laboral'] ||
@@ -196,8 +215,12 @@ async function procesarDatos(datos) {
             });
         }
         
-        const prestamo = {
-            numeroPrestamo: row['PRESTAMO'] || row['Prestamo'] || '',
+        const numeroPrestamo = row['PRESTAMO'] || row['Prestamo'] || '';
+        const clave = `${numeroPrestamo}-${tipoVisita}`;
+        const prestamoExistente = prestamosExistentes[clave];
+        
+        const datosPrestamo = {
+            numeroPrestamo: numeroPrestamo,
             nombreCliente: row['Nombre'] || row['NOMBRE'] || row['Nombre Cliente'] || row['Cliente'] || row['CLIENTE'] || '',
             nombreEmpresa: row['Nombre de Empresa'] || row['NOMBRE DE EMPRESA'] || row['Empresa'] || row['EMPRESA'] || '',
             dpi: row['DPI'] || row['Dpi'] || row['dpi'] || '',
@@ -206,22 +229,44 @@ async function procesarDatos(datos) {
             municipio: row['Municipio'] || row['MUNICIPIO'] || '',
             departamento: row['Departamento'] || row['DEPARTAMENTO'] || '',
             enCarteraPasada: row['En Cartera pasada'] || '',
-            tipoVisita: tipoVisita, // NUEVO: domiciliar o laboral
+            tipoVisita: tipoVisita,
             ubicacion: ubicacion,
-            visitado: false,
-            fechaVisita: null,
-            ubicacionReal: null,
-            historialVisitas: [], // NUEVO: Array de visitas históricas
             fechaImportacion: new Date().toISOString()
         };
 
         try {
-            await addDoc(prestamosRef, prestamo);
+            if (prestamoExistente) {
+                // ACTUALIZAR préstamo existente - PRESERVAR historial y visitas
+                await updateDoc(doc(db, 'prestamos', prestamoExistente.id), {
+                    ...datosPrestamo,
+                    // PRESERVAR estos campos si ya existen
+                    visitado: prestamoExistente.visitado || false,
+                    fechaVisita: prestamoExistente.fechaVisita || null,
+                    ubicacionReal: prestamoExistente.ubicacionReal || null,
+                    distanciaDesviacion: prestamoExistente.distanciaDesviacion || 0,
+                    historialVisitas: prestamoExistente.historialVisitas || [],
+                    ultimaVisitaLocalizado: prestamoExistente.ultimaVisitaLocalizado || null,
+                    ultimaVisitaTipo: prestamoExistente.ultimaVisitaTipo || null
+                });
+                actualizados++;
+            } else {
+                // CREAR nuevo préstamo
+                await addDoc(prestamosRef, {
+                    ...datosPrestamo,
+                    visitado: false,
+                    fechaVisita: null,
+                    ubicacionReal: null,
+                    historialVisitas: []
+                });
+                nuevos++;
+            }
         } catch (error) {
-            console.error(`Error guardando préstamo ${prestamo.numeroPrestamo}:`, error);
+            console.error(`Error procesando préstamo ${numeroPrestamo}:`, error);
             // Continuar con el siguiente
         }
     }
+    
+    console.log(`✅ Importación completada: ${actualizados} actualizados, ${nuevos} nuevos`);
 }
 
 function extraerCoordenadas(ubicacionStr) {
