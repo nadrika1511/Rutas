@@ -1511,6 +1511,20 @@ async function cargarVisitasRuta(soloPendientes = false) {
                             data-numero="${prestamo.numeroPrestamo}">
                         ✅ Marcar como Visitado
                     </button>
+                    <button class="btn btn-warning btn-liberar-cliente" 
+                            data-ruta-id="${ruta.id}"
+                            data-prestamo-id="${prestamo.id}"
+                            data-numero="${prestamo.numeroPrestamo}"
+                            style="background: #ff9800;">
+                        🔓 Liberar de Ruta
+                    </button>
+                    <button class="btn btn-info btn-reprogramar-cliente" 
+                            data-ruta-id="${ruta.id}"
+                            data-prestamo-id="${prestamo.id}"
+                            data-numero="${prestamo.numeroPrestamo}"
+                            style="background: #2196f3;">
+                        📅 Reprogramar
+                    </button>
                 </div>
             ` : ''}
             <div class="visita-actions" style="margin-top: 10px;">
@@ -1575,6 +1589,184 @@ async function cargarVisitasRuta(soloPendientes = false) {
                 btn.dataset.tipo
             );
         });
+    });
+    
+    // Agregar event listeners a botones de liberar
+    document.querySelectorAll('.btn-liberar-cliente').forEach(btn => {
+        btn.addEventListener('click', () => {
+            liberarClienteDeRuta(
+                btn.dataset.rutaId,
+                btn.dataset.prestamoId,
+                btn.dataset.numero
+            );
+        });
+    });
+    
+    // Agregar event listeners a botones de reprogramar
+    document.querySelectorAll('.btn-reprogramar-cliente').forEach(btn => {
+        btn.addEventListener('click', () => {
+            mostrarModalReprogramar(
+                btn.dataset.rutaId,
+                btn.dataset.prestamoId,
+                btn.dataset.numero
+            );
+        });
+    });
+        });
+    });
+}
+
+// ============== LIBERAR CLIENTE DE RUTA ==============
+async function liberarClienteDeRuta(rutaId, prestamoId, numeroPrestamo) {
+    const confirmar = confirm(`¿Liberar préstamo ${numeroPrestamo} de esta ruta?\n\nEl cliente quedará disponible para asignarlo a otra ruta.`);
+    
+    if (!confirmar) return;
+    
+    try {
+        const rutaRef = doc(db, 'rutas', rutaId);
+        const ruta = appState.rutasGuardadas.find(r => r.id === rutaId);
+        
+        if (!ruta) {
+            alert('Ruta no encontrada');
+            return;
+        }
+        
+        // Filtrar el préstamo de la ruta
+        const prestamosActualizados = ruta.prestamos.filter(p => p.prestamoId !== prestamoId);
+        
+        await updateDoc(rutaRef, {
+            prestamos: prestamosActualizados
+        });
+        
+        alert(`✅ Cliente ${numeroPrestamo} liberado de la ruta`);
+        
+        // Recargar rutas y vista actual
+        await cargarRutasGuardadas();
+        await cargarVisitasRuta(false);
+        
+    } catch (error) {
+        console.error('Error liberando cliente:', error);
+        alert('❌ Error al liberar el cliente');
+    }
+}
+
+// ============== REPROGRAMAR CLIENTE ==============
+function mostrarModalReprogramar(rutaId, prestamoId, numeroPrestamo) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    `;
+
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%;">
+            <h3 style="color: #667eea; margin-bottom: 20px;">📅 Reprogramar Cliente</h3>
+            
+            <p style="margin-bottom: 20px;"><strong>Préstamo:</strong> ${numeroPrestamo}</p>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">
+                    Seleccionar otra ruta:
+                </label>
+                <select id="selectRutaDestino" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;">
+                    <option value="">Seleccione una ruta...</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="btnCancelarReprogramar" 
+                        style="padding: 10px 20px; border: 2px solid #dc3545; background: white; color: #dc3545; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    Cancelar
+                </button>
+                <button id="btnConfirmarReprogramar" 
+                        style="padding: 10px 20px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    📅 Reprogramar
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    
+    // Llenar select con otras rutas (excluyendo la actual)
+    const select = document.getElementById('selectRutaDestino');
+    appState.rutasGuardadas
+        .filter(r => r.id !== rutaId)
+        .forEach(ruta => {
+            const option = document.createElement('option');
+            option.value = ruta.id;
+            option.textContent = `${ruta.cobrador} - ${ruta.fecha} (${ruta.prestamos.length} visitas)`;
+            select.appendChild(option);
+        });
+
+    document.getElementById('btnCancelarReprogramar').onclick = () => {
+        document.body.removeChild(modal);
+    };
+
+    document.getElementById('btnConfirmarReprogramar').onclick = async () => {
+        const rutaDestinoId = select.value;
+        
+        if (!rutaDestinoId) {
+            alert('Selecciona una ruta de destino');
+            return;
+        }
+        
+        try {
+            // Obtener ambas rutas
+            const rutaOrigen = appState.rutasGuardadas.find(r => r.id === rutaId);
+            const rutaDestino = appState.rutasGuardadas.find(r => r.id === rutaDestinoId);
+            
+            if (!rutaOrigen || !rutaDestino) {
+                alert('Error: Rutas no encontradas');
+                return;
+            }
+            
+            // Encontrar el préstamo a mover
+            const prestamoAMover = rutaOrigen.prestamos.find(p => p.prestamoId === prestamoId);
+            
+            if (!prestamoAMover) {
+                alert('Préstamo no encontrado en la ruta');
+                return;
+            }
+            
+            // Actualizar ruta origen (quitar préstamo)
+            const prestamosOrigenActualizados = rutaOrigen.prestamos.filter(p => p.prestamoId !== prestamoId);
+            await updateDoc(doc(db, 'rutas', rutaId), {
+                prestamos: prestamosOrigenActualizados
+            });
+            
+            // Actualizar ruta destino (agregar préstamo)
+            const prestamosDestinoActualizados = [...rutaDestino.prestamos, prestamoAMover];
+            await updateDoc(doc(db, 'rutas', rutaDestinoId), {
+                prestamos: prestamosDestinoActualizados
+            });
+            
+            document.body.removeChild(modal);
+            alert(`✅ Cliente ${numeroPrestamo} reprogramado a ${rutaDestino.cobrador} - ${rutaDestino.fecha}`);
+            
+            // Recargar rutas y vista actual
+            await cargarRutasGuardadas();
+            await cargarVisitasRuta(false);
+            
+        } catch (error) {
+            console.error('Error reprogramando cliente:', error);
+            alert('❌ Error al reprogramar el cliente');
+        }
+    };
+    
+    // Cerrar al hacer click fuera del modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
     });
 }
 
@@ -2061,29 +2253,118 @@ function mostrarMensaje(elementId, mensaje, tipo) {
 
 // ============== REPORTES Y ESTADÍSTICAS ==============
 function actualizarReportes() {
-    const container = document.getElementById('estadisticas');
+    // ===== DASHBOARD GENERAL =====
+    const dashboardContainer = document.getElementById('dashboardGeneral');
     
-    // Estadísticas generales
-    const totalPrestamos = appState.prestamos.filter(p => 
-        p.cobrador && p.cobrador.toLowerCase() !== 'sin cobrador'
-    ).length;
-    const conUbicacion = appState.prestamos.filter(p => 
-        p.ubicacion.tipo === 'coordenadas' && 
-        p.cobrador && p.cobrador.toLowerCase() !== 'sin cobrador'
-    ).length;
-    const sinUbicacion = appState.prestamos.filter(p => 
-        p.ubicacion.tipo === 'sin_visita' && 
-        p.cobrador && p.cobrador.toLowerCase() !== 'sin cobrador'
-    ).length;
+    const totalPrestamos = appState.prestamos.length;
     const visitados = appState.prestamos.filter(p => p.visitado).length;
     const pendientes = totalPrestamos - visitados;
+    const localizados = appState.prestamos.filter(p => p.historialVisitas?.some(v => v.localizado)).length;
+    const noLocalizados = appState.prestamos.filter(p => p.historialVisitas?.some(v => !v.localizado)).length;
     
-    // Calcular porcentajes
-    const porcentajeVisitados = totalPrestamos > 0 ? (visitados / totalPrestamos * 100).toFixed(1) : 0;
+    const domiciliares = appState.prestamos.filter(p => p.tipoVisita === 'domiciliar').length;
+    const laborales = appState.prestamos.filter(p => p.tipoVisita === 'laboral').length;
+    
+    const visitadosDomiciliar = appState.prestamos.filter(p => p.tipoVisita === 'domiciliar' && p.visitado).length;
+    const visitadosLaboral = appState.prestamos.filter(p => p.tipoVisita === 'laboral' && p.visitado).length;
+    
+    dashboardContainer.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 36px; font-weight: bold;">${totalPrestamos}</div>
+                <div style="font-size: 14px; opacity: 0.9;">Total Clientes</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 20px; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 36px; font-weight: bold;">${visitados}</div>
+                <div style="font-size: 14px; opacity: 0.9;">✅ Visitados</div>
+                <div style="font-size: 12px; opacity: 0.8;">${totalPrestamos > 0 ? ((visitados/totalPrestamos)*100).toFixed(1) : 0}%</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); padding: 20px; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 36px; font-weight: bold;">${pendientes}</div>
+                <div style="font-size: 14px; opacity: 0.9;">⏳ Pendientes</div>
+                <div style="font-size: 12px; opacity: 0.8;">${totalPrestamos > 0 ? ((pendientes/totalPrestamos)*100).toFixed(1) : 0}%</div>
+            </div>
+        </div>
+        
+        <h4 style="margin: 20px 0 10px 0;">Por Resultado de Visita</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                <div style="font-size: 28px; font-weight: bold; color: #155724;">${localizados}</div>
+                <div style="font-size: 14px; color: #155724;">✅ Localizados</div>
+            </div>
+            <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                <div style="font-size: 28px; font-weight: bold; color: #721c24;">${noLocalizados}</div>
+                <div style="font-size: 14px; color: #721c24;">❌ No Localizados</div>
+            </div>
+        </div>
+        
+        <h4 style="margin: 20px 0 10px 0;">Por Tipo de Visita</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800;">
+                <div style="font-size: 24px; font-weight: bold; color: #e65100;">🏠 Domiciliar</div>
+                <div style="font-size: 14px; color: #e65100; margin-top: 5px;">
+                    Total: ${domiciliares} | Visitados: ${visitadosDomiciliar} (${domiciliares > 0 ? ((visitadosDomiciliar/domiciliares)*100).toFixed(1) : 0}%)
+                </div>
+            </div>
+            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <div style="font-size: 24px; font-weight: bold; color: #0d47a1;">💼 Laboral</div>
+                <div style="font-size: 14px; color: #0d47a1; margin-top: 5px;">
+                    Total: ${laborales} | Visitados: ${visitadosLaboral} (${laborales > 0 ? ((visitadosLaboral/laborales)*100).toFixed(1) : 0}%)
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // ===== ESTADÍSTICAS POR COBRADOR =====
+    const cobradoresContainer = document.getElementById('estadisticasCobradores');
+    
+    const estatsPorCobrador = appState.cobradores.map(cobrador => {
+        const prestamosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador);
+        const visitadosCobrador = prestamosCobrador.filter(p => p.visitado).length;
+        const localizadosCobrador = prestamosCobrador.filter(p => p.historialVisitas?.some(v => v.localizado)).length;
+        const domiciliarCobrador = prestamosCobrador.filter(p => p.tipoVisita === 'domiciliar').length;
+        const laboralCobrador = prestamosCobrador.filter(p => p.tipoVisita === 'laboral').length;
+        
+        return {
+            cobrador,
+            total: prestamosCobrador.length,
+            visitados: visitadosCobrador,
+            pendientes: prestamosCobrador.length - visitadosCobrador,
+            localizados: localizadosCobrador,
+            domiciliar: domiciliarCobrador,
+            laboral: laboralCobrador,
+            porcentaje: prestamosCobrador.length > 0 ? (visitadosCobrador / prestamosCobrador.length * 100).toFixed(1) : 0
+        };
+    });
+    
+    cobradoresContainer.innerHTML = estatsPorCobrador.map(stats => `
+        <div style="background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin: 0; color: #495057;">👤 ${stats.cobrador}</h4>
+                <span style="font-size: 20px; font-weight: bold; color: #667eea;">${stats.porcentaje}%</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; font-size: 14px;">
+                <div><strong>Total:</strong> ${stats.total}</div>
+                <div><strong>✅ Visitados:</strong> ${stats.visitados}</div>
+                <div><strong>⏳ Pendientes:</strong> ${stats.pendientes}</div>
+                <div><strong>🎯 Localizados:</strong> ${stats.localizados}</div>
+                <div><strong>🏠 Domiciliar:</strong> ${stats.domiciliar}</div>
+                <div><strong>💼 Laboral:</strong> ${stats.laboral}</div>
+            </div>
+            <div style="background: #e9ecef; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden;">
+                <div style="background: linear-gradient(90deg, #28a745 0%, #20c997 100%); height: 100%; width: ${stats.porcentaje}%; transition: width 0.3s;"></div>
+            </div>
+        </div>
+    `).join('');
+    
+    // ===== ESTADÍSTICAS DETALLADAS =====
+    const container = document.getElementById('estadisticas');
+    
+    const conUbicacion = appState.prestamos.filter(p => p.ubicacion.tipo === 'coordenadas').length;
+    const sinUbicacion = appState.prestamos.filter(p => p.ubicacion.tipo === 'sin_visita').length;
     const porcentajeConGPS = totalPrestamos > 0 ? (conUbicacion / totalPrestamos * 100).toFixed(1) : 0;
     
-    // Estadísticas por cobrador
-    const estatsPorCobrador = appState.cobradores.map(cobrador => {
+    const estatsPorCobradorDetalle = appState.cobradores.map(cobrador => {
         const prestamosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador);
         const visitadosCobrador = prestamosCobrador.filter(p => p.visitado).length;
         const conUbicacionCobrador = prestamosCobrador.filter(p => p.ubicacion.tipo === 'coordenadas').length;
@@ -2100,57 +2381,50 @@ function actualizarReportes() {
     });
     
     container.innerHTML = `
-        <h2>📊 Estadísticas Generales</h2>
-        
-        <div class="stats-grid" style="margin-bottom: 30px;">
-            <div class="stat-item">
-                <div class="number">${totalPrestamos}</div>
-                <div class="label">Total Préstamos</div>
+        <h4>Cobertura GPS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
+            <div style="padding: 15px; background: #d4edda; border-radius: 8px; text-align: center;">
+                <div style="font-size: 24px; font-weight: bold; color: #155724;">${conUbicacion}</div>
+                <div style="font-size: 14px; color: #155724;">Con GPS</div>
+                <div style="font-size: 12px; color: #155724;">${porcentajeConGPS}%</div>
             </div>
-            <div class="stat-item">
-                <div class="number" style="color: #28a745;">${visitados}</div>
-                <div class="label">Visitados</div>
-            </div>
-            <div class="stat-item">
-                <div class="number" style="color: #ffc107;">${pendientes}</div>
-                <div class="label">Pendientes</div>
-            </div>
-            <div class="stat-item">
-                <div class="number">${porcentajeVisitados}%</div>
-                <div class="label">Avance</div>
-            </div>
-            <div class="stat-item">
-                <div class="number">${conUbicacion}</div>
-                <div class="label">Con GPS</div>
-            </div>
-            <div class="stat-item">
-                <div class="number">${sinUbicacion}</div>
-                <div class="label">Sin GPS</div>
+            <div style="padding: 15px; background: #fff3cd; border-radius: 8px; text-align: center;">
+                <div style="font-size: 24px; font-weight: bold; color: #856404;">${sinUbicacion}</div>
+                <div style="font-size: 14px; color: #856404;">Sin GPS</div>
+                <div style="font-size: 12px; color: #856404;">${totalPrestamos > 0 ? ((sinUbicacion/totalPrestamos)*100).toFixed(1) : 0}%</div>
             </div>
         </div>
         
-        <h3>👥 Estadísticas por Cobrador</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Cobrador</th>
-                    <th>Total</th>
-                    <th>Visitados</th>
-                    <th>Pendientes</th>
-                    <th>Con GPS</th>
-                    <th>Sin GPS</th>
-                    <th>Avance %</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${estatsPorCobrador.map(stat => `
-                    <tr>
-                        <td><strong>${stat.cobrador}</strong></td>
-                        <td>${stat.total}</td>
-                        <td><span class="badge badge-success">${stat.visitados}</span></td>
-                        <td><span class="badge badge-warning">${stat.pendientes}</span></td>
-                        <td>${stat.conGPS}</td>
-                        <td>${stat.sinGPS}</td>
+        <h4>Tabla Detallada por Cobrador</h4>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">Cobrador</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Total</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Visitados</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Pendientes</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Con GPS</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Sin GPS</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Avance %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${estatsPorCobradorDetalle.map(stat => `
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 10px;"><strong>${stat.cobrador}</strong></td>
+                            <td style="padding: 10px; text-align: center;">${stat.total}</td>
+                            <td style="padding: 10px; text-align: center;"><span style="background: #28a745; color: white; padding: 3px 8px; border-radius: 4px;">${stat.visitados}</span></td>
+                            <td style="padding: 10px; text-align: center;"><span style="background: #ffc107; color: white; padding: 3px 8px; border-radius: 4px;">${stat.pendientes}</span></td>
+                            <td style="padding: 10px; text-align: center;">${stat.conGPS}</td>
+                            <td style="padding: 10px; text-align: center;">${stat.sinGPS}</td>
+                            <td style="padding: 10px; text-align: center;"><strong>${stat.porcentaje}%</strong></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
                         <td>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <div style="flex: 1; background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
