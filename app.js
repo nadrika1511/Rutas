@@ -171,13 +171,38 @@ async function procesarDatos(datos) {
             tipoVisita = 'laboral';
         }
         
+        // Detectar dirección con múltiples variantes posibles
+        const direccion = row['Dirección Domiciliar'] || 
+                         row['Direccion Domiciliar'] || 
+                         row['DIRECCIÓN DOMICILIAR'] || 
+                         row['DIRECCION DOMICILIAR'] ||
+                         row['Direccion'] || 
+                         row['DIRECCION'] ||
+                         row['Dirección'] ||
+                         row['DIRECCIÓN'] ||
+                         row['Direccion Laboral'] ||
+                         row['DIRECCION LABORAL'] ||
+                         row['Dirección Laboral'] ||
+                         row['DIRECCIÓN LABORAL'] ||
+                         '';
+        
+        // Log para depuración (solo en las primeras filas)
+        if (i < 3) {
+            console.log(`Fila ${i + 1}:`, {
+                prestamo: row['PRESTAMO'],
+                tipo: tipoVisita,
+                direccion: direccion || '⚠️ VACÍO',
+                columnasDisponibles: Object.keys(row)
+            });
+        }
+        
         const prestamo = {
             numeroPrestamo: row['PRESTAMO'] || row['Prestamo'] || '',
             nombreCliente: row['Nombre'] || row['NOMBRE'] || row['Nombre Cliente'] || row['Cliente'] || row['CLIENTE'] || '',
             nombreEmpresa: row['Nombre de Empresa'] || row['NOMBRE DE EMPRESA'] || row['Empresa'] || row['EMPRESA'] || '',
             dpi: row['DPI'] || row['Dpi'] || row['dpi'] || '',
             cobrador: row['Cobrador'] || row['COBRADOR'] || row['Si fuera'] || '',
-            direccion: row['Dirección Domiciliar'] || row['Direccion Domiciliar'] || row['Direccion'] || row['DIRECCION'] || '',
+            direccion: direccion,
             municipio: row['Municipio'] || row['MUNICIPIO'] || '',
             departamento: row['Departamento'] || row['DEPARTAMENTO'] || '',
             enCarteraPasada: row['En Cartera pasada'] || '',
