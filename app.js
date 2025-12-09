@@ -160,18 +160,29 @@ async function procesarDatos(datos) {
         
         const ubicacion = extraerCoordenadas(row['Ubicación'] || row['UBICACION'] || '');
         
+        // Detectar tipo de visita
+        const tipoVisitaRaw = row['Tipo Visita'] || row['TIPO VISITA'] || row['Tipo'] || '';
+        let tipoVisita = 'domiciliar'; // Por defecto
+        
+        if (tipoVisitaRaw.toLowerCase().includes('laboral') || tipoVisitaRaw.toLowerCase().includes('trabajo')) {
+            tipoVisita = 'laboral';
+        }
+        
         const prestamo = {
             numeroPrestamo: row['PRESTAMO'] || row['Prestamo'] || '',
             nombreCliente: row['Nombre'] || row['NOMBRE'] || row['Nombre Cliente'] || row['Cliente'] || row['CLIENTE'] || '',
+            dpi: row['DPI'] || row['Dpi'] || row['dpi'] || '',
             cobrador: row['Cobrador'] || row['COBRADOR'] || row['Si fuera'] || '',
             direccion: row['Dirección Domiciliar'] || row['Direccion Domiciliar'] || row['Direccion'] || row['DIRECCION'] || '',
             municipio: row['Municipio'] || row['MUNICIPIO'] || '',
             departamento: row['Departamento'] || row['DEPARTAMENTO'] || '',
             enCarteraPasada: row['En Cartera pasada'] || '',
+            tipoVisita: tipoVisita, // NUEVO: domiciliar o laboral
             ubicacion: ubicacion,
             visitado: false,
             fechaVisita: null,
             ubicacionReal: null,
+            historialVisitas: [], // NUEVO: Array de visitas históricas
             fechaImportacion: new Date().toISOString()
         };
 
@@ -757,11 +768,15 @@ function mostrarRutaGenerada() {
     // Detalle de la ruta con opción de editar
     let detalleHTML = '<h3>Secuencia de Visitas</h3>';
     ruta.forEach((item, index) => {
+        const iconoTipo = item.prestamo.tipoVisita === 'laboral' ? '💼' : '🏠';
+        const labelTipo = item.prestamo.tipoVisita === 'laboral' ? 'Laboral' : 'Domiciliar';
+        
         if (item.tieneUbicacion) {
             // Visita con ubicación GPS
             detalleHTML += `
                 <div class="ruta-item">
-                    <h4>📍 Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
+                    <h4>📍 Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo} ${iconoTipo}</h4>
+                    <p><span style="background: ${item.prestamo.tipoVisita === 'laboral' ? '#e3f2fd' : '#fff3e0'}; padding: 3px 8px; border-radius: 5px; font-size: 12px;">${iconoTipo} ${labelTipo}</span></p>
                     ${item.prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${item.prestamo.nombreCliente}</p>` : ''}
                     <p><strong>Dirección:</strong> ${item.prestamo.direccion || 'No disponible'}</p>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
@@ -783,7 +798,8 @@ function mostrarRutaGenerada() {
             // Visita sin ubicación GPS
             detalleHTML += `
                 <div class="ruta-item" style="border-left-color: #ffc107; background: #fff9e6;">
-                    <h4>⚠️ Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo}</h4>
+                    <h4>⚠️ Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo} ${iconoTipo}</h4>
+                    <p><span style="background: ${item.prestamo.tipoVisita === 'laboral' ? '#e3f2fd' : '#fff3e0'}; padding: 3px 8px; border-radius: 5px; font-size: 12px;">${iconoTipo} ${labelTipo}</span></p>
                     ${item.prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${item.prestamo.nombreCliente}</p>` : ''}
                     <p><strong>Dirección:</strong> ${item.prestamo.direccion || 'No disponible'}</p>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
@@ -1395,6 +1411,38 @@ function mostrarModalVisita(prestamoId, ubicacionOriginal, numeroPrestamo) {
             
             <div style="margin-bottom: 20px;">
                 <label style="display: block; font-weight: 600; margin-bottom: 8px;">
+                    ¿Cliente localizado?
+                </label>
+                <div style="display: flex; gap: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="localizado" value="si" checked style="margin-right: 5px;">
+                        ✅ Sí
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="localizado" value="no" style="margin-right: 5px;">
+                        ❌ No
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">
+                    ¿Dónde se visitó?
+                </label>
+                <div style="display: flex; gap: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="tipoVisita" value="domiciliar" checked style="margin-right: 5px;">
+                        🏠 Casa
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="tipoVisita" value="laboral" style="margin-right: 5px;">
+                        💼 Trabajo
+                    </label>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">
                     Ubicación GPS de la Visita:
                 </label>
                 <input type="text" id="modalGPS" 
@@ -1431,12 +1479,16 @@ function mostrarModalVisita(prestamoId, ubicacionOriginal, numeroPrestamo) {
             return;
         }
         
+        // Capturar resultado de visita
+        const localizado = document.querySelector('input[name="localizado"]:checked').value === 'si';
+        const tipoVisitaRealizada = document.querySelector('input[name="tipoVisita"]:checked').value;
+        
         document.body.removeChild(modal);
-        await marcarComoVisitado(prestamoId, gpsInput, ubicacionOriginal);
+        await marcarComoVisitado(prestamoId, gpsInput, ubicacionOriginal, localizado, tipoVisitaRealizada);
     };
 }
 
-async function marcarComoVisitado(prestamoId, gpsStr, ubicacionOriginal) {
+async function marcarComoVisitado(prestamoId, gpsStr, ubicacionOriginal, localizado, tipoVisitaRealizada) {
     try {
         const [lat, lng] = gpsStr.split(',').map(s => parseFloat(s.trim()));
         
@@ -1461,16 +1513,38 @@ async function marcarComoVisitado(prestamoId, gpsStr, ubicacionOriginal) {
             }
         }
 
+        const fechaVisita = new Date().toISOString();
+        
+        // Crear registro de visita para el historial
+        const registroVisita = {
+            fecha: fechaVisita,
+            localizado: localizado,
+            tipoVisita: tipoVisitaRealizada, // domiciliar o laboral
+            ubicacionReal: { lat, lng },
+            distanciaDesviacion: distanciaDesviacion,
+            cobrador: prestamo.cobrador
+        };
+
+        // Obtener historial actual o crear array vacío
+        const historialActual = prestamo.historialVisitas || [];
+        historialActual.push(registroVisita);
+
         await updateDoc(doc(db, 'prestamos', prestamoId), {
             visitado: true,
-            fechaVisita: new Date().toISOString(),
+            fechaVisita: fechaVisita,
             ubicacionReal: { lat, lng },
-            distanciaDesviacion: distanciaDesviacion
+            distanciaDesviacion: distanciaDesviacion,
+            historialVisitas: historialActual, // Guardar todo el historial
+            ultimaVisitaLocalizado: localizado,
+            ultimaVisitaTipo: tipoVisitaRealizada
         });
 
+        const estadoCliente = localizado ? 'Localizado' : 'No localizado';
+        const lugarVisita = tipoVisitaRealizada === 'domiciliar' ? '🏠 Casa' : '💼 Trabajo';
+        
         const mensaje = distanciaDesviacion > 0 
-            ? `✅ Visita registrada. Desviación: ${distanciaDesviacion.toFixed(2)} km (${(distanciaDesviacion * 1000).toFixed(0)} metros)`
-            : '✅ Visita registrada correctamente';
+            ? `✅ Visita registrada\n${estadoCliente} - ${lugarVisita}\nDesviación: ${distanciaDesviacion.toFixed(2)} km (${(distanciaDesviacion * 1000).toFixed(0)} metros)`
+            : `✅ Visita registrada\n${estadoCliente} - ${lugarVisita}`;
 
         alert(mensaje);
         await cargarDatosFirebase();
