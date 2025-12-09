@@ -2038,6 +2038,35 @@ function buscarCliente() {
             const direccionMostrar = ubicacion.direccion && ubicacion.direccion.trim() !== '' ? 
                 ubicacion.direccion : 
                 '<span style="color: #dc3545;">⚠️ Sin dirección registrada</span>';
+            
+            // Buscar en qué rutas está este préstamo
+            const rutasConCliente = appState.rutasGuardadas.filter(ruta => 
+                ruta.prestamos.some(p => p.prestamoId === ubicacion.id)
+            );
+            
+            let rutasHTML = '';
+            if (rutasConCliente.length > 0) {
+                rutasHTML = `
+                    <div style="margin-top: 15px; padding: 10px; background: #e8f5e9; border-radius: 6px; border-left: 3px solid #4caf50;">
+                        <p style="margin: 0 0 8px 0; font-weight: 600; color: #2e7d32;">🗓️ Rutas Asignadas:</p>
+                        ${rutasConCliente.map(ruta => `
+                            <div style="margin-bottom: 5px;">
+                                <button class="btn-ir-ruta" 
+                                        data-ruta-id="${ruta.id}"
+                                        style="background: #4caf50; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; width: 100%; text-align: left;">
+                                    📅 ${ruta.fecha} - ${ruta.cobrador} (${ruta.prestamos.length} visitas) →
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                rutasHTML = `
+                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 6px; border-left: 3px solid #ffc107;">
+                        <p style="margin: 0; color: #856404;">⚠️ No asignado a ninguna ruta</p>
+                    </div>
+                `;
+            }
 
             tarjeta.innerHTML = `
                 <div style="background: ${colorBg}; padding: 8px; border-radius: 5px; margin-bottom: 10px; display: inline-block;">
@@ -2051,6 +2080,7 @@ function buscarCliente() {
                 <p><strong>Estado:</strong> ${ubicacion.visitado ? '✅ Visitado' : '⏳ Pendiente'}</p>
                 <p><strong>Última visita:</strong> ${ultimaVisita}</p>
                 <p><strong>Total visitas:</strong> ${numVisitas}</p>
+                ${rutasHTML}
                 <button class="btn btn-info btn-ver-historial-busqueda" 
                         data-numero="${ubicacion.numeroPrestamo}" 
                         data-tipo="${ubicacion.tipoVisita}"
@@ -2072,6 +2102,38 @@ function buscarCliente() {
             mostrarHistorialCliente(btn.dataset.numero, btn.dataset.tipo);
         });
     });
+    
+    // Agregar event listeners a botones de ir a ruta
+    document.querySelectorAll('.btn-ir-ruta').forEach(btn => {
+        btn.addEventListener('click', () => {
+            irARuta(btn.dataset.rutaId);
+        });
+    });
+}
+
+// ============== IR A RUTA DESDE BÚSQUEDA ==============
+function irARuta(rutaId) {
+    // Cambiar a la pestaña de Visitas
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === 'visitas') {
+            btn.classList.add('active');
+        }
+    });
+    
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById('visitas').classList.add('active');
+    
+    // Seleccionar la ruta en el dropdown
+    document.getElementById('rutaSelectVisita').value = rutaId;
+    
+    // Cargar las visitas de esa ruta
+    cargarVisitasRuta(false);
+    
+    // Scroll al inicio
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function mostrarModalVisita(prestamoId, ubicacionOriginal, numeroPrestamo) {
