@@ -2517,11 +2517,12 @@ async function generarPDFRutaDia() {
     doc.setFont(undefined, 'bold');
     doc.text('No.', 17, y);
     doc.text('Préstamo', 28, y);
-    doc.text('Cliente', 50, y);
-    doc.text('Empresa', 85, y);
-    doc.text('Dirección', 115, y);
-    doc.text('Municipio', 200, y);
-    doc.text('Depto', 240, y);
+    doc.text('Cliente', 48, y);
+    doc.text('Empresa', 75, y);
+    doc.text('Dirección', 100, y);
+    doc.text('Municipio', 170, y);
+    doc.text('Depto', 210, y);
+    doc.text('GPS', 235, y);
     y += 5;
 
     // Línea debajo de encabezados
@@ -2544,13 +2545,18 @@ async function generarPDFRutaDia() {
         const direccion = String(prestamo?.direccion || item.direccion || 'N/A');
         const municipio = String(prestamo?.municipio || item.municipio || 'N/A');
         const departamento = String(prestamo?.departamento || item.departamento || 'N/A');
+        
+        // Obtener coordenadas GPS
+        const gpsLat = item.ubicacion?.lat || prestamo?.ubicacion?.lat;
+        const gpsLng = item.ubicacion?.lng || prestamo?.ubicacion?.lng;
+        const tieneGPS = gpsLat && gpsLng;
 
-        // Dividir textos en múltiples líneas (wrap text) con anchos específicos
-        const nombreLineas = doc.splitTextToSize(nombreCliente || '-', 32); // 32mm de ancho
-        const empresaLineas = doc.splitTextToSize(nombreEmpresa || '-', 28); // 28mm de ancho
-        const direccionLineas = doc.splitTextToSize(direccion, 82); // 82mm de ancho
-        const municipioLineas = doc.splitTextToSize(municipio, 37); // 37mm de ancho
-        const departamentoLineas = doc.splitTextToSize(departamento, 22); // 22mm de ancho
+        // Dividir textos en múltiples líneas (wrap text) con anchos ajustados
+        const nombreLineas = doc.splitTextToSize(nombreCliente || '-', 25); // Reducido
+        const empresaLineas = doc.splitTextToSize(nombreEmpresa || '-', 23); // Reducido
+        const direccionLineas = doc.splitTextToSize(direccion, 67); // Reducido
+        const municipioLineas = doc.splitTextToSize(municipio, 37); 
+        const departamentoLineas = doc.splitTextToSize(departamento, 22);
 
         // Calcular altura de la fila basado en la columna con más líneas
         const maxLineas = Math.max(
@@ -2572,11 +2578,12 @@ async function generarPDFRutaDia() {
             doc.setFontSize(9);
             doc.text('No.', 17, y);
             doc.text('Préstamo', 28, y);
-            doc.text('Cliente', 50, y);
-            doc.text('Empresa', 85, y);
-            doc.text('Dirección', 115, y);
-            doc.text('Municipio', 200, y);
-            doc.text('Depto', 240, y);
+            doc.text('Cliente', 48, y);
+            doc.text('Empresa', 75, y);
+            doc.text('Dirección', 100, y);
+            doc.text('Municipio', 170, y);
+            doc.text('Depto', 210, y);
+            doc.text('GPS', 235, y);
             y += 5;
             doc.setLineWidth(0.3);
             doc.line(15, y - 1, 265, y - 1);
@@ -2595,38 +2602,49 @@ async function generarPDFRutaDia() {
         // Imprimir nombre del cliente con múltiples líneas
         let yNombre = y;
         nombreLineas.forEach(linea => {
-            doc.text(linea, 50, yNombre);
+            doc.text(linea, 48, yNombre);
             yNombre += lineHeight;
         });
 
         // Imprimir nombre de empresa con múltiples líneas
         let yEmpresa = y;
         empresaLineas.forEach(linea => {
-            doc.text(linea, 85, yEmpresa);
+            doc.text(linea, 75, yEmpresa);
             yEmpresa += lineHeight;
         });
 
         // Imprimir dirección con múltiples líneas
         let yDireccion = y;
         direccionLineas.forEach(linea => {
-            doc.text(linea, 115, yDireccion);
+            doc.text(linea, 100, yDireccion);
             yDireccion += lineHeight;
         });
 
         // Imprimir municipio con múltiples líneas
         let yMunicipio = y;
         municipioLineas.forEach(linea => {
-            doc.text(linea, 200, yMunicipio);
+            doc.text(linea, 170, yMunicipio);
             yMunicipio += lineHeight;
         });
 
         // Imprimir departamento con múltiples líneas
         let yDepartamento = y;
         departamentoLineas.forEach(linea => {
-            doc.text(linea, 240, yDepartamento);
+            doc.text(linea, 210, yDepartamento);
             yDepartamento += lineHeight;
         });
-
+        
+        // Imprimir GPS con link clickeable
+        if (tieneGPS) {
+            const urlGoogleMaps = `https://www.google.com/maps?q=${gpsLat},${gpsLng}`;
+            doc.setTextColor(0, 0, 255); // Azul para link
+            doc.textWithLink('Ver mapa', 235, y, { url: urlGoogleMaps });
+            doc.setTextColor(0, 0, 0); // Volver a negro
+        } else {
+            doc.setTextColor(150, 150, 150); // Gris
+            doc.text('Sin GPS', 235, y);
+            doc.setTextColor(0, 0, 0); // Volver a negro
+        }        
         // Avanzar Y según la altura de la fila
         y += alturaFila;
 
