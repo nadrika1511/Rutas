@@ -19,6 +19,7 @@
             <button class="tab-btn" data-tab="cobradores">👥 Cobradores</button>
             <button class="tab-btn" data-tab="rutas">🚗 Generar Ruta</button>
             <button class="tab-btn" data-tab="visitas">✅ Visitas</button>
+            <button class="tab-btn" data-tab="buscar">🔍 Buscar</button>
             <button class="tab-btn" data-tab="reportes">📊 Reportes</button>
         </nav>
 
@@ -111,6 +112,23 @@
                     <button id="btnRegistrarGPS" class="btn btn-primary">📍 Registrar Ubicación</button>
                     <div id="distanciaInfo"></div>
                 </div>
+            </div>
+        </div>
+
+        <!-- TAB: BUSCAR -->
+        <div class="tab-content" id="buscar">
+            <div class="card">
+                <h2>🔍 Buscar Cliente</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">
+                    Busca clientes por número de préstamo, DPI o nombre. Se mostrarán todas las ubicaciones del cliente.
+                </p>
+                
+                <div class="form-group">
+                    <label>Buscar:</label>
+                    <input type="text" id="inputBuscarCliente" placeholder="Número de préstamo, DPI o nombre..." style="font-size: 16px;">
+                </div>
+
+                <div id="resultadosBusqueda"></div>
             </div>
         </div>
 
