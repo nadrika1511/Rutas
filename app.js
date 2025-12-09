@@ -1612,8 +1612,6 @@ async function cargarVisitasRuta(soloPendientes = false) {
             );
         });
     });
-        });
-    });
 }
 
 // ============== LIBERAR CLIENTE DE RUTA ==============
