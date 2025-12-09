@@ -2423,24 +2423,6 @@ function actualizarReportes() {
             </table>
         </div>
     `;
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <div style="flex: 1; background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
-                                    <div style="background: linear-gradient(90deg, #28a745, #20c997); height: 100%; width: ${stat.porcentaje}%; transition: width 0.3s;"></div>
-                                </div>
-                                <span style="font-weight: 600; color: #28a745;">${stat.porcentaje}%</span>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        
-        <div style="margin-top: 30px;">
-            <h3>📍 Detalles de Desviaciones</h3>
-            ${generarTablaDesviaciones()}
-        </div>
-    `;
 }
 
 function generarTablaDesviaciones() {
