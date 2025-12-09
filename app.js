@@ -171,6 +171,7 @@ async function procesarDatos(datos) {
         const prestamo = {
             numeroPrestamo: row['PRESTAMO'] || row['Prestamo'] || '',
             nombreCliente: row['Nombre'] || row['NOMBRE'] || row['Nombre Cliente'] || row['Cliente'] || row['CLIENTE'] || '',
+            nombreEmpresa: row['Nombre de Empresa'] || row['NOMBRE DE EMPRESA'] || row['Empresa'] || row['EMPRESA'] || '',
             dpi: row['DPI'] || row['Dpi'] || row['dpi'] || '',
             cobrador: row['Cobrador'] || row['COBRADOR'] || row['Si fuera'] || '',
             direccion: row['Dirección Domiciliar'] || row['Direccion Domiciliar'] || row['Direccion'] || row['DIRECCION'] || '',
@@ -778,6 +779,7 @@ function mostrarRutaGenerada() {
                     <h4>📍 Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo} ${iconoTipo}</h4>
                     <p><span style="background: ${item.prestamo.tipoVisita === 'laboral' ? '#e3f2fd' : '#fff3e0'}; padding: 3px 8px; border-radius: 5px; font-size: 12px;">${iconoTipo} ${labelTipo}</span></p>
                     ${item.prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${item.prestamo.nombreCliente}</p>` : ''}
+                    ${item.prestamo.nombreEmpresa ? `<p><strong>Empresa:</strong> ${item.prestamo.nombreEmpresa}</p>` : ''}
                     <p><strong>Dirección:</strong> ${item.prestamo.direccion || 'No disponible'}</p>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
                     <p><strong>Coordenadas:</strong> 
@@ -801,6 +803,7 @@ function mostrarRutaGenerada() {
                     <h4>⚠️ Visita ${index + 1}: Préstamo ${item.prestamo.numeroPrestamo} ${iconoTipo}</h4>
                     <p><span style="background: ${item.prestamo.tipoVisita === 'laboral' ? '#e3f2fd' : '#fff3e0'}; padding: 3px 8px; border-radius: 5px; font-size: 12px;">${iconoTipo} ${labelTipo}</span></p>
                     ${item.prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${item.prestamo.nombreCliente}</p>` : ''}
+                    ${item.prestamo.nombreEmpresa ? `<p><strong>Empresa:</strong> ${item.prestamo.nombreEmpresa}</p>` : ''}
                     <p><strong>Dirección:</strong> ${item.prestamo.direccion || 'No disponible'}</p>
                     <p><strong>Municipio:</strong> ${item.prestamo.municipio}</p>
                     <p><strong>Estado:</strong> Sin ubicación GPS previa</p>
@@ -1768,10 +1771,11 @@ async function generarPDFRutaDia() {
     doc.setFont(undefined, 'bold');
     doc.text('No.', 17, y);
     doc.text('Préstamo', 28, y);
-    doc.text('Cliente', 53, y);
-    doc.text('Dirección', 98, y);
-    doc.text('Municipio', 185, y);
-    doc.text('Departamento', 228, y);
+    doc.text('Cliente', 50, y);
+    doc.text('Empresa', 85, y);
+    doc.text('Dirección', 115, y);
+    doc.text('Municipio', 200, y);
+    doc.text('Depto', 240, y);
     y += 5;
 
     // Línea debajo de encabezados
@@ -1790,19 +1794,22 @@ async function generarPDFRutaDia() {
         const numero = String(i + 1);
         const numeroPrestamo = String(item.numeroPrestamo || prestamo?.numeroPrestamo || 'N/A');
         const nombreCliente = String(prestamo?.nombreCliente || item.nombreCliente || '');
+        const nombreEmpresa = String(prestamo?.nombreEmpresa || item.nombreEmpresa || '');
         const direccion = String(prestamo?.direccion || item.direccion || 'N/A');
         const municipio = String(prestamo?.municipio || item.municipio || 'N/A');
         const departamento = String(prestamo?.departamento || item.departamento || 'N/A');
 
         // Dividir textos en múltiples líneas (wrap text) con anchos específicos
-        const nombreLineas = doc.splitTextToSize(nombreCliente || '-', 42); // 42mm de ancho
-        const direccionLineas = doc.splitTextToSize(direccion, 85); // 85mm de ancho
-        const municipioLineas = doc.splitTextToSize(municipio, 40); // 40mm de ancho
-        const departamentoLineas = doc.splitTextToSize(departamento, 35); // 35mm de ancho
+        const nombreLineas = doc.splitTextToSize(nombreCliente || '-', 32); // 32mm de ancho
+        const empresaLineas = doc.splitTextToSize(nombreEmpresa || '-', 28); // 28mm de ancho
+        const direccionLineas = doc.splitTextToSize(direccion, 82); // 82mm de ancho
+        const municipioLineas = doc.splitTextToSize(municipio, 37); // 37mm de ancho
+        const departamentoLineas = doc.splitTextToSize(departamento, 22); // 22mm de ancho
 
         // Calcular altura de la fila basado en la columna con más líneas
         const maxLineas = Math.max(
             nombreLineas.length,
+            empresaLineas.length,
             direccionLineas.length,
             municipioLineas.length,
             departamentoLineas.length
@@ -1819,10 +1826,11 @@ async function generarPDFRutaDia() {
             doc.setFontSize(9);
             doc.text('No.', 17, y);
             doc.text('Préstamo', 28, y);
-            doc.text('Cliente', 53, y);
-            doc.text('Dirección', 98, y);
-            doc.text('Municipio', 185, y);
-            doc.text('Departamento', 228, y);
+            doc.text('Cliente', 50, y);
+            doc.text('Empresa', 85, y);
+            doc.text('Dirección', 115, y);
+            doc.text('Municipio', 200, y);
+            doc.text('Depto', 240, y);
             y += 5;
             doc.setLineWidth(0.3);
             doc.line(15, y - 1, 265, y - 1);
@@ -1841,28 +1849,35 @@ async function generarPDFRutaDia() {
         // Imprimir nombre del cliente con múltiples líneas
         let yNombre = y;
         nombreLineas.forEach(linea => {
-            doc.text(linea, 53, yNombre);
+            doc.text(linea, 50, yNombre);
             yNombre += lineHeight;
+        });
+
+        // Imprimir nombre de empresa con múltiples líneas
+        let yEmpresa = y;
+        empresaLineas.forEach(linea => {
+            doc.text(linea, 85, yEmpresa);
+            yEmpresa += lineHeight;
         });
 
         // Imprimir dirección con múltiples líneas
         let yDireccion = y;
         direccionLineas.forEach(linea => {
-            doc.text(linea, 98, yDireccion);
+            doc.text(linea, 115, yDireccion);
             yDireccion += lineHeight;
         });
 
         // Imprimir municipio con múltiples líneas
         let yMunicipio = y;
         municipioLineas.forEach(linea => {
-            doc.text(linea, 185, yMunicipio);
+            doc.text(linea, 200, yMunicipio);
             yMunicipio += lineHeight;
         });
 
         // Imprimir departamento con múltiples líneas
         let yDepartamento = y;
         departamentoLineas.forEach(linea => {
-            doc.text(linea, 228, yDepartamento);
+            doc.text(linea, 240, yDepartamento);
             yDepartamento += lineHeight;
         });
 
