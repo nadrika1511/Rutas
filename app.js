@@ -1,6 +1,6 @@
 // app.js - Sistema de Rutas v2.1 - Distancias Mejoradas
 // Última actualización: 2025-12-03
-import { db, collection, addDoc, getDocs, updateDoc, doc, query, where, orderBy } from './firebase-config.js';
+import { db, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from './firebase-config.js';
 
 // Estado global de la aplicación
 const appState = {
@@ -49,10 +49,15 @@ function initEventListeners() {
     document.getElementById('btnGuardarRuta').addEventListener('click', guardarRuta);
     document.getElementById('btnDescargarPDF').addEventListener('click', descargarPDF);
     document.getElementById('btnRegistrarGPS').addEventListener('click', registrarGPSManual);
-    document.getElementById('rutaSelectVisita').addEventListener('change', cargarVisitasRuta);
+    document.getElementById('rutaSelectVisita').addEventListener('change', () => cargarVisitasRuta(false));
     
     // Buscador de clientes
     document.getElementById('inputBuscarCliente').addEventListener('input', buscarCliente);
+    
+    // Botones de gestión de rutas
+    document.getElementById('btnVerPendientes').addEventListener('click', () => cargarVisitasRuta(true));
+    document.getElementById('btnVerTodos').addEventListener('click', () => cargarVisitasRuta(false));
+    document.getElementById('btnEliminarRuta').addEventListener('click', eliminarRutaSeleccionada);
     
     // Usar delegación de eventos para botones que pueden no existir inicialmente
     document.addEventListener('click', (e) => {
@@ -1298,15 +1303,39 @@ async function cargarRutasGuardadas() {
             });
         });
 
-        // Actualizar select de rutas en visitas
+        // Actualizar select de rutas en visitas - AGRUPADO
         const select = document.getElementById('rutaSelectVisita');
         select.innerHTML = '<option value="">Seleccione una ruta...</option>';
         
+        // Agrupar rutas por cobrador
+        const rutasPorCobrador = {};
         appState.rutasGuardadas.forEach(ruta => {
-            const option = document.createElement('option');
-            option.value = ruta.id;
-            option.textContent = `${ruta.cobrador} - ${ruta.fecha} (${ruta.prestamos.length} visitas)`;
-            select.appendChild(option);
+            if (!rutasPorCobrador[ruta.cobrador]) {
+                rutasPorCobrador[ruta.cobrador] = [];
+            }
+            rutasPorCobrador[ruta.cobrador].push(ruta);
+        });
+
+        // Ordenar cobradores alfabéticamente
+        const cobradoresOrdenados = Object.keys(rutasPorCobrador).sort();
+        
+        cobradoresOrdenados.forEach(cobrador => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `👤 ${cobrador}`;
+            
+            // Ordenar rutas del cobrador por fecha descendente
+            const rutasCobrador = rutasPorCobrador[cobrador].sort((a, b) => {
+                return b.fecha.localeCompare(a.fecha);
+            });
+            
+            rutasCobrador.forEach(ruta => {
+                const option = document.createElement('option');
+                option.value = ruta.id;
+                option.textContent = `📅 ${ruta.fecha} (${ruta.prestamos.length} visitas)`;
+                optgroup.appendChild(option);
+            });
+            
+            select.appendChild(optgroup);
         });
 
         // Actualizar select de rutas para PDF
@@ -1358,14 +1387,27 @@ async function cargarRutasGuardadas() {
     }
 }
 
-async function cargarVisitasRuta() {
+async function cargarVisitasRuta(soloPendientes = false) {
     const rutaId = document.getElementById('rutaSelectVisita').value;
     const container = document.getElementById('visitasList');
     
+    // Mostrar/ocultar botones de gestión
+    const btnVerPendientes = document.getElementById('btnVerPendientes');
+    const btnVerTodos = document.getElementById('btnVerTodos');
+    const btnEliminarRuta = document.getElementById('btnEliminarRuta');
+    
     if (!rutaId) {
         container.innerHTML = '';
+        btnVerPendientes.style.display = 'none';
+        btnVerTodos.style.display = 'none';
+        btnEliminarRuta.style.display = 'none';
         return;
     }
+    
+    // Mostrar botones cuando hay ruta seleccionada
+    btnVerPendientes.style.display = soloPendientes ? 'none' : 'inline-block';
+    btnVerTodos.style.display = soloPendientes ? 'inline-block' : 'none';
+    btnEliminarRuta.style.display = 'inline-block';
 
     const ruta = appState.rutasGuardadas.find(r => r.id === rutaId);
     if (!ruta) {
@@ -1378,7 +1420,8 @@ async function cargarVisitasRuta() {
     console.log('📦 Total préstamos en ruta:', ruta.prestamos?.length || 0);
     console.log('📦 Total préstamos en memoria:', appState.prestamos.length);
 
-    container.innerHTML = '<h3>Visitas en esta Ruta</h3>';
+    const tituloFiltro = soloPendientes ? 'Visitas Pendientes' : 'Todas las Visitas';
+    container.innerHTML = `<h3>${tituloFiltro} en esta Ruta</h3>`;
 
     if (!ruta.prestamos || ruta.prestamos.length === 0) {
         container.innerHTML += '<p style="color: #856404; padding: 15px; background: #fff3cd; border-radius: 8px;">⚠️ Esta ruta no tiene préstamos asignados.</p>';
@@ -1387,6 +1430,8 @@ async function cargarVisitasRuta() {
 
     let visitasMostradas = 0;
     let visitasNoEncontradas = 0;
+    let totalPendientes = 0;
+    let totalVisitados = 0;
 
     for (const item of ruta.prestamos) {
         console.log('🔍 Buscando préstamo ID:', item.prestamoId);
@@ -1411,6 +1456,18 @@ async function cargarVisitasRuta() {
             `;
             container.appendChild(div);
             continue;
+        }
+        
+        // Filtrar por estado si es necesario
+        if (soloPendientes && prestamo.visitado) {
+            totalVisitados++;
+            continue;
+        }
+        
+        if (!prestamo.visitado) {
+            totalPendientes++;
+        } else {
+            totalVisitados++;
         }
 
         visitasMostradas++;
@@ -1469,6 +1526,28 @@ async function cargarVisitasRuta() {
     }
 
     console.log(`📊 Resultado: ${visitasMostradas} visitas mostradas, ${visitasNoEncontradas} no encontradas`);
+    
+    // Resumen de la ruta
+    const resumen = document.createElement('div');
+    resumen.style.cssText = 'margin-top: 15px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;';
+    resumen.innerHTML = `
+        <h4 style="margin: 0 0 10px 0;">📊 Resumen de Ruta</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+            <div>
+                <strong>Total:</strong> ${totalPendientes + totalVisitados}
+            </div>
+            <div>
+                <strong>✅ Visitados:</strong> ${totalVisitados}
+            </div>
+            <div>
+                <strong>⏳ Pendientes:</strong> ${totalPendientes}
+            </div>
+            <div>
+                <strong>Progreso:</strong> ${totalPendientes + totalVisitados > 0 ? Math.round((totalVisitados / (totalPendientes + totalVisitados)) * 100) : 0}%
+            </div>
+        </div>
+    `;
+    container.appendChild(resumen);
 
     if (visitasNoEncontradas > 0) {
         const warning = document.createElement('div');
@@ -1497,6 +1576,42 @@ async function cargarVisitasRuta() {
             );
         });
     });
+}
+
+// ============== ELIMINAR RUTA ==============
+async function eliminarRutaSeleccionada() {
+    const rutaId = document.getElementById('rutaSelectVisita').value;
+    
+    if (!rutaId) {
+        alert('Selecciona una ruta primero');
+        return;
+    }
+    
+    const ruta = appState.rutasGuardadas.find(r => r.id === rutaId);
+    if (!ruta) {
+        alert('Ruta no encontrada');
+        return;
+    }
+    
+    const confirmar = confirm(`¿Estás seguro de eliminar la ruta de ${ruta.cobrador} del ${ruta.fecha}?\n\nEsto NO eliminará las visitas registradas, solo la agrupación de la ruta.`);
+    
+    if (!confirmar) return;
+    
+    try {
+        await deleteDoc(doc(db, 'rutas', rutaId));
+        alert('✅ Ruta eliminada correctamente');
+        
+        // Recargar rutas
+        await cargarRutasGuardadas();
+        
+        // Limpiar selección
+        document.getElementById('rutaSelectVisita').value = '';
+        document.getElementById('visitasList').innerHTML = '';
+        
+    } catch (error) {
+        console.error('Error eliminando ruta:', error);
+        alert('❌ Error al eliminar la ruta');
+    }
 }
 
 // ============== MOSTRAR HISTORIAL DE CLIENTE ==============
