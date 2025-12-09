@@ -236,18 +236,26 @@ async function procesarDatos(datos) {
 
         try {
             if (prestamoExistente) {
-                // ACTUALIZAR préstamo existente - PRESERVAR historial y visitas
-                await updateDoc(doc(db, 'prestamos', prestamoExistente.id), {
-                    ...datosPrestamo,
-                    // PRESERVAR estos campos EXACTAMENTE como están (no usar ||)
-                    visitado: prestamoExistente.visitado !== undefined ? prestamoExistente.visitado : false,
-                    fechaVisita: prestamoExistente.fechaVisita !== undefined ? prestamoExistente.fechaVisita : null,
-                    ubicacionReal: prestamoExistente.ubicacionReal !== undefined ? prestamoExistente.ubicacionReal : null,
-                    distanciaDesviacion: prestamoExistente.distanciaDesviacion !== undefined ? prestamoExistente.distanciaDesviacion : 0,
-                    historialVisitas: prestamoExistente.historialVisitas || [],
-                    ultimaVisitaLocalizado: prestamoExistente.ultimaVisitaLocalizado !== undefined ? prestamoExistente.ultimaVisitaLocalizado : null,
-                    ultimaVisitaTipo: prestamoExistente.ultimaVisitaTipo !== undefined ? prestamoExistente.ultimaVisitaTipo : null
-                });
+                // ACTUALIZAR SOLO campos básicos - NUNCA tocar campos de visita
+                const camposActualizar = {
+                    // Datos básicos del Excel (se pueden actualizar)
+                    nombreCliente: datosPrestamo.nombreCliente,
+                    nombreEmpresa: datosPrestamo.nombreEmpresa,
+                    dpi: datosPrestamo.dpi,
+                    cobrador: datosPrestamo.cobrador,
+                    direccion: datosPrestamo.direccion,
+                    municipio: datosPrestamo.municipio,
+                    departamento: datosPrestamo.departamento,
+                    enCarteraPasada: datosPrestamo.enCarteraPasada,
+                    tipoVisita: datosPrestamo.tipoVisita,
+                    ubicacion: datosPrestamo.ubicacion,
+                    fechaImportacion: datosPrestamo.fechaImportacion
+                };
+                
+                // NO incluir: visitado, fechaVisita, ubicacionReal, historialVisitas
+                // Estos campos SOLO se modifican cuando se marca como visitado
+                
+                await updateDoc(doc(db, 'prestamos', prestamoExistente.id), camposActualizar);
                 actualizados++;
             } else {
                 // CREAR nuevo préstamo
