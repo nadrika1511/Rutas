@@ -51,6 +51,9 @@ function initEventListeners() {
     document.getElementById('btnRegistrarGPS').addEventListener('click', registrarGPSManual);
     document.getElementById('rutaSelectVisita').addEventListener('change', cargarVisitasRuta);
     
+    // Buscador de clientes
+    document.getElementById('inputBuscarCliente').addEventListener('input', buscarCliente);
+    
     // Usar delegación de eventos para botones que pueden no existir inicialmente
     document.addEventListener('click', (e) => {
         if (e.target && e.target.id === 'btnGenerarPDFRuta') {
@@ -1337,9 +1340,17 @@ async function cargarVisitasRuta() {
 
         const div = document.createElement('div');
         div.className = `ruta-item ${prestamo.visitado ? 'visitado' : ''}`;
+        
+        const iconoTipo = prestamo.tipoVisita === 'laboral' ? '💼' : '🏠';
+        const labelTipo = prestamo.tipoVisita === 'laboral' ? 'Laboral' : 'Domiciliar';
+        const colorBadge = prestamo.tipoVisita === 'laboral' ? '#e3f2fd' : '#fff3e0';
+        
         div.innerHTML = `
-            <h4>📍 Préstamo ${prestamo.numeroPrestamo}</h4>
+            <h4>📍 Préstamo ${prestamo.numeroPrestamo} ${iconoTipo}</h4>
+            <p><span style="background: ${colorBadge}; padding: 3px 8px; border-radius: 5px; font-size: 12px;">${iconoTipo} ${labelTipo}</span></p>
             ${prestamo.nombreCliente ? `<p><strong>Cliente:</strong> ${prestamo.nombreCliente}</p>` : ''}
+            ${prestamo.nombreEmpresa ? `<p><strong>Empresa:</strong> ${prestamo.nombreEmpresa}</p>` : ''}
+            ${prestamo.dpi ? `<p><strong>DPI:</strong> ${prestamo.dpi}</p>` : ''}
             ${prestamo.direccion ? `<p><strong>Dirección:</strong> ${prestamo.direccion}</p>` : ''}
             <p><strong>Municipio:</strong> ${prestamo.municipio}</p>
             <p><strong>Estado:</strong> ${prestamo.visitado ? '✅ Visitado' : '⏳ Pendiente'}</p>
@@ -1367,6 +1378,14 @@ async function cargarVisitasRuta() {
                     </button>
                 </div>
             ` : ''}
+            <div class="visita-actions" style="margin-top: 10px;">
+                <button class="btn btn-info btn-ver-historial" 
+                        data-numero="${prestamo.numeroPrestamo}"
+                        data-tipo="${prestamo.tipoVisita}"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-size: 14px;">
+                    📋 Ver Historial Completo
+                </button>
+            </div>
         `;
         container.appendChild(div);
     }
@@ -1388,6 +1407,258 @@ async function cargarVisitasRuta() {
                 btn.dataset.ubicacionOriginal,
                 btn.dataset.numero
             );
+        });
+    });
+
+    // Agregar event listeners a botones de ver historial
+    document.querySelectorAll('.btn-ver-historial').forEach(btn => {
+        btn.addEventListener('click', () => {
+            mostrarHistorialCliente(
+                btn.dataset.numero,
+                btn.dataset.tipo
+            );
+        });
+    });
+}
+
+// ============== MOSTRAR HISTORIAL DE CLIENTE ==============
+function mostrarHistorialCliente(numeroPrestamo, tipoVisita) {
+    // Buscar la ubicación específica
+    const ubicacion = appState.prestamos.find(p => 
+        p.numeroPrestamo === numeroPrestamo && 
+        p.tipoVisita === tipoVisita
+    );
+
+    if (!ubicacion) {
+        alert('No se encontró información de este cliente');
+        return;
+    }
+
+    const historial = ubicacion.historialVisitas || [];
+    const iconoTipo = tipoVisita === 'laboral' ? '💼' : '🏠';
+    const labelTipo = tipoVisita === 'laboral' ? 'LABORAL' : 'DOMICILIAR';
+    const colorBadge = tipoVisita === 'laboral' ? '#2196f3' : '#ff9800';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        overflow-y: auto;
+    `;
+
+    let historialHTML = '';
+    
+    if (historial.length === 0) {
+        historialHTML = '<p style="color: #6c757d; text-align: center; padding: 20px;">📭 No hay visitas registradas aún</p>';
+    } else {
+        historial.forEach((visita, index) => {
+            const fecha = new Date(visita.fecha).toLocaleString('es-GT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const estadoCliente = visita.localizado ? '✅ Localizado' : '❌ No localizado';
+            const lugarVisita = visita.tipoVisita === 'laboral' ? '💼 Trabajo' : '🏠 Casa';
+            const colorEstado = visita.localizado ? '#28a745' : '#dc3545';
+
+            historialHTML += `
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${colorEstado};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <strong style="color: #495057;">Visita #${index + 1}</strong>
+                        <span style="font-size: 12px; color: #6c757d;">${fecha}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px;">
+                        <div>
+                            <span style="color: #6c757d;">Estado:</span>
+                            <strong style="color: ${colorEstado};">${estadoCliente}</strong>
+                        </div>
+                        <div>
+                            <span style="color: #6c757d;">Lugar:</span>
+                            <strong>${lugarVisita}</strong>
+                        </div>
+                        <div>
+                            <span style="color: #6c757d;">Cobrador:</span>
+                            <strong>${visita.cobrador}</strong>
+                        </div>
+                        <div>
+                            <span style="color: #6c757d;">Desviación:</span>
+                            <strong>${visita.distanciaDesviacion.toFixed(2)} km</strong>
+                        </div>
+                    </div>
+                    ${visita.ubicacionReal ? `
+                        <div style="margin-top: 8px; font-size: 12px; color: #6c757d;">
+                            GPS: ${visita.ubicacionReal.lat}, ${visita.ubicacionReal.lng}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+    }
+
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 10px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="color: #667eea; margin: 0;">📋 Historial de Cliente</h3>
+                <button id="btnCerrarHistorial" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6c757d;">&times;</button>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 8px; margin-bottom: 20px; color: white;">
+                <p style="margin: 5px 0;"><strong>Préstamo:</strong> ${numeroPrestamo}</p>
+                ${ubicacion.nombreCliente ? `<p style="margin: 5px 0;"><strong>Cliente:</strong> ${ubicacion.nombreCliente}</p>` : ''}
+                ${ubicacion.dpi ? `<p style="margin: 5px 0;"><strong>DPI:</strong> ${ubicacion.dpi}</p>` : ''}
+                ${ubicacion.nombreEmpresa ? `<p style="margin: 5px 0;"><strong>Empresa:</strong> ${ubicacion.nombreEmpresa}</p>` : ''}
+                <p style="margin: 5px 0;"><strong>Dirección:</strong> ${ubicacion.direccion}</p>
+                <div style="margin-top: 10px; padding: 8px; background: ${colorBadge}; border-radius: 5px; display: inline-block;">
+                    ${iconoTipo} ${labelTipo}
+                </div>
+            </div>
+
+            <h4 style="color: #495057; margin-bottom: 15px;">Registro de Visitas (${historial.length})</h4>
+            
+            ${historialHTML}
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="btnCerrarHistorial2" style="padding: 12px 30px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('btnCerrarHistorial').onclick = () => {
+        document.body.removeChild(modal);
+    };
+
+    document.getElementById('btnCerrarHistorial2').onclick = () => {
+        document.body.removeChild(modal);
+    };
+
+    // Cerrar al hacer click fuera del modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+// ============== BUSCAR CLIENTE ==============
+function buscarCliente() {
+    const termino = document.getElementById('inputBuscarCliente').value.trim().toLowerCase();
+    const container = document.getElementById('resultadosBusqueda');
+
+    if (termino.length < 3) {
+        container.innerHTML = '<p style="color: #6c757d; padding: 15px;">✍️ Escribe al menos 3 caracteres para buscar...</p>';
+        return;
+    }
+
+    // Buscar en todos los préstamos
+    const resultados = appState.prestamos.filter(p => {
+        const numeroPrestamo = String(p.numeroPrestamo || '').toLowerCase();
+        const nombreCliente = String(p.nombreCliente || '').toLowerCase();
+        const dpi = String(p.dpi || '').toLowerCase();
+        
+        return numeroPrestamo.includes(termino) || 
+               nombreCliente.includes(termino) || 
+               dpi.includes(termino);
+    });
+
+    if (resultados.length === 0) {
+        container.innerHTML = '<p style="color: #856404; padding: 15px; background: #fff3cd; border-radius: 8px;">⚠️ No se encontraron clientes con ese criterio de búsqueda.</p>';
+        return;
+    }
+
+    // Agrupar por número de préstamo
+    const clientesAgrupados = {};
+    resultados.forEach(p => {
+        if (!clientesAgrupados[p.numeroPrestamo]) {
+            clientesAgrupados[p.numeroPrestamo] = [];
+        }
+        clientesAgrupados[p.numeroPrestamo].push(p);
+    });
+
+    // Mostrar resultados
+    container.innerHTML = '<h3>Resultados de Búsqueda</h3>';
+
+    Object.keys(clientesAgrupados).forEach(numeroPrestamo => {
+        const ubicaciones = clientesAgrupados[numeroPrestamo];
+        
+        // Contenedor para las tarjetas del cliente
+        const clienteDiv = document.createElement('div');
+        clienteDiv.style.cssText = 'margin-bottom: 30px; padding: 15px; background: #f8f9fa; border-radius: 10px;';
+        
+        // Título del cliente
+        const titulo = document.createElement('h4');
+        titulo.style.cssText = 'color: #495057; margin-bottom: 15px;';
+        titulo.textContent = `Cliente: ${ubicaciones[0].nombreCliente || 'Sin nombre'} - Préstamo ${numeroPrestamo}`;
+        clienteDiv.appendChild(titulo);
+
+        // Grid de tarjetas
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;';
+
+        ubicaciones.forEach(ubicacion => {
+            const iconoTipo = ubicacion.tipoVisita === 'laboral' ? '💼' : '🏠';
+            const labelTipo = ubicacion.tipoVisita === 'laboral' ? 'LABORAL' : 'DOMICILIAR';
+            const colorBorde = ubicacion.tipoVisita === 'laboral' ? '#2196f3' : '#ff9800';
+            const colorBg = ubicacion.tipoVisita === 'laboral' ? '#e3f2fd' : '#fff3e0';
+
+            const tarjeta = document.createElement('div');
+            tarjeta.style.cssText = `
+                background: white;
+                border-left: 5px solid ${colorBorde};
+                border-radius: 8px;
+                padding: 15px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            `;
+
+            const numVisitas = (ubicacion.historialVisitas || []).length;
+            const ultimaVisita = ubicacion.visitado ? 
+                new Date(ubicacion.fechaVisita).toLocaleDateString('es-GT') : 
+                'Sin visitar';
+
+            tarjeta.innerHTML = `
+                <div style="background: ${colorBg}; padding: 8px; border-radius: 5px; margin-bottom: 10px; display: inline-block;">
+                    <strong>${iconoTipo} ${labelTipo}</strong>
+                </div>
+                ${ubicacion.nombreEmpresa ? `<p><strong>Empresa:</strong> ${ubicacion.nombreEmpresa}</p>` : ''}
+                ${ubicacion.dpi ? `<p><strong>DPI:</strong> ${ubicacion.dpi}</p>` : ''}
+                <p><strong>Dirección:</strong> ${ubicacion.direccion}</p>
+                <p><strong>Municipio:</strong> ${ubicacion.municipio}, ${ubicacion.departamento}</p>
+                <p><strong>Cobrador:</strong> ${ubicacion.cobrador}</p>
+                <p><strong>Estado:</strong> ${ubicacion.visitado ? '✅ Visitado' : '⏳ Pendiente'}</p>
+                <p><strong>Última visita:</strong> ${ultimaVisita}</p>
+                <p><strong>Total visitas:</strong> ${numVisitas}</p>
+                <button class="btn btn-info btn-ver-historial-busqueda" 
+                        data-numero="${ubicacion.numeroPrestamo}" 
+                        data-tipo="${ubicacion.tipoVisita}"
+                        style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    📋 Ver Historial
+                </button>
+            `;
+
+            grid.appendChild(tarjeta);
+        });
+
+        clienteDiv.appendChild(grid);
+        container.appendChild(clienteDiv);
+    });
+
+    // Agregar event listeners a botones de historial
+    document.querySelectorAll('.btn-ver-historial-busqueda').forEach(btn => {
+        btn.addEventListener('click', () => {
+            mostrarHistorialCliente(btn.dataset.numero, btn.dataset.tipo);
         });
     });
 }
