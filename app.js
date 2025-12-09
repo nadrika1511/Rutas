@@ -1579,20 +1579,43 @@ function buscarCliente() {
         return;
     }
 
-    // Agrupar por número de préstamo
+    // Agrupar por número de préstamo Y filtrar duplicados por tipo
     const clientesAgrupados = {};
     resultados.forEach(p => {
         if (!clientesAgrupados[p.numeroPrestamo]) {
-            clientesAgrupados[p.numeroPrestamo] = [];
+            clientesAgrupados[p.numeroPrestamo] = {
+                domiciliar: null,
+                laboral: null
+            };
         }
-        clientesAgrupados[p.numeroPrestamo].push(p);
+        
+        // Solo guardar la primera ocurrencia de cada tipo
+        // Priorizar las que tienen más información (dirección completa)
+        if (p.tipoVisita === 'domiciliar') {
+            if (!clientesAgrupados[p.numeroPrestamo].domiciliar || 
+                (p.direccion && p.direccion.length > (clientesAgrupados[p.numeroPrestamo].domiciliar.direccion || '').length)) {
+                clientesAgrupados[p.numeroPrestamo].domiciliar = p;
+            }
+        } else if (p.tipoVisita === 'laboral') {
+            if (!clientesAgrupados[p.numeroPrestamo].laboral || 
+                (p.direccion && p.direccion.length > (clientesAgrupados[p.numeroPrestamo].laboral.direccion || '').length)) {
+                clientesAgrupados[p.numeroPrestamo].laboral = p;
+            }
+        }
     });
 
     // Mostrar resultados
     container.innerHTML = '<h3>Resultados de Búsqueda</h3>';
 
     Object.keys(clientesAgrupados).forEach(numeroPrestamo => {
-        const ubicaciones = clientesAgrupados[numeroPrestamo];
+        const tipos = clientesAgrupados[numeroPrestamo];
+        const ubicaciones = [];
+        
+        // Agregar solo las ubicaciones que existen
+        if (tipos.domiciliar) ubicaciones.push(tipos.domiciliar);
+        if (tipos.laboral) ubicaciones.push(tipos.laboral);
+        
+        if (ubicaciones.length === 0) return;
         
         // Contenedor para las tarjetas del cliente
         const clienteDiv = document.createElement('div');
@@ -1627,6 +1650,11 @@ function buscarCliente() {
             const ultimaVisita = ubicacion.visitado ? 
                 new Date(ubicacion.fechaVisita).toLocaleDateString('es-GT') : 
                 'Sin visitar';
+            
+            // Validar que la dirección no esté vacía
+            const direccionMostrar = ubicacion.direccion && ubicacion.direccion.trim() !== '' ? 
+                ubicacion.direccion : 
+                '<span style="color: #dc3545;">⚠️ Sin dirección registrada</span>';
 
             tarjeta.innerHTML = `
                 <div style="background: ${colorBg}; padding: 8px; border-radius: 5px; margin-bottom: 10px; display: inline-block;">
@@ -1634,7 +1662,7 @@ function buscarCliente() {
                 </div>
                 ${ubicacion.nombreEmpresa ? `<p><strong>Empresa:</strong> ${ubicacion.nombreEmpresa}</p>` : ''}
                 ${ubicacion.dpi ? `<p><strong>DPI:</strong> ${ubicacion.dpi}</p>` : ''}
-                <p><strong>Dirección:</strong> ${ubicacion.direccion}</p>
+                <p><strong>Dirección:</strong> ${direccionMostrar}</p>
                 <p><strong>Municipio:</strong> ${ubicacion.municipio}, ${ubicacion.departamento}</p>
                 <p><strong>Cobrador:</strong> ${ubicacion.cobrador}</p>
                 <p><strong>Estado:</strong> ${ubicacion.visitado ? '✅ Visitado' : '⏳ Pendiente'}</p>
