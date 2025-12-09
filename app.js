@@ -239,14 +239,14 @@ async function procesarDatos(datos) {
                 // ACTUALIZAR préstamo existente - PRESERVAR historial y visitas
                 await updateDoc(doc(db, 'prestamos', prestamoExistente.id), {
                     ...datosPrestamo,
-                    // PRESERVAR estos campos si ya existen
-                    visitado: prestamoExistente.visitado || false,
-                    fechaVisita: prestamoExistente.fechaVisita || null,
-                    ubicacionReal: prestamoExistente.ubicacionReal || null,
-                    distanciaDesviacion: prestamoExistente.distanciaDesviacion || 0,
+                    // PRESERVAR estos campos EXACTAMENTE como están (no usar ||)
+                    visitado: prestamoExistente.visitado !== undefined ? prestamoExistente.visitado : false,
+                    fechaVisita: prestamoExistente.fechaVisita !== undefined ? prestamoExistente.fechaVisita : null,
+                    ubicacionReal: prestamoExistente.ubicacionReal !== undefined ? prestamoExistente.ubicacionReal : null,
+                    distanciaDesviacion: prestamoExistente.distanciaDesviacion !== undefined ? prestamoExistente.distanciaDesviacion : 0,
                     historialVisitas: prestamoExistente.historialVisitas || [],
-                    ultimaVisitaLocalizado: prestamoExistente.ultimaVisitaLocalizado || null,
-                    ultimaVisitaTipo: prestamoExistente.ultimaVisitaTipo || null
+                    ultimaVisitaLocalizado: prestamoExistente.ultimaVisitaLocalizado !== undefined ? prestamoExistente.ultimaVisitaLocalizado : null,
+                    ultimaVisitaTipo: prestamoExistente.ultimaVisitaTipo !== undefined ? prestamoExistente.ultimaVisitaTipo : null
                 });
                 actualizados++;
             } else {
