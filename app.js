@@ -278,6 +278,15 @@ async function procesarDatos(datos) {
         
         const ubicacion = extraerCoordenadas(row['Ubicación'] || row['UBICACION'] || '');
         
+        // Log de las primeras 3 filas para debug
+        if (i < 3) {
+            console.log(`Fila ${i + 1}:`, {
+                prestamo: row['PRESTAMO'],
+                ubicacionStr: row['Ubicación'] || row['UBICACION'],
+                ubicacionParsed: ubicacion
+            });
+        }
+        
         // Detectar tipo de visita
         const tipoVisitaRaw = row['Tipo Visita'] || row['TIPO VISITA'] || row['Tipo'] || '';
         let tipoVisita = 'domiciliar'; // Por defecto
@@ -379,11 +388,21 @@ function extraerCoordenadas(ubicacionStr) {
     }
 
     // Extraer de URL de Google Maps
-    const match = ubicacionStr.match(/q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-    if (match) {
+    const matchURL = ubicacionStr.match(/q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+    if (matchURL) {
         return {
-            lat: parseFloat(match[1]),
-            lng: parseFloat(match[2]),
+            lat: parseFloat(matchURL[1]),
+            lng: parseFloat(matchURL[2]),
+            tipo: 'coordenadas'
+        };
+    }
+    
+    // Extraer coordenadas en formato directo: "13.8072,-89.1797"
+    const matchDirect = String(ubicacionStr).trim().match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+    if (matchDirect) {
+        return {
+            lat: parseFloat(matchDirect[1]),
+            lng: parseFloat(matchDirect[2]),
             tipo: 'coordenadas'
         };
     }
