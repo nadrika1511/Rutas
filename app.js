@@ -46,6 +46,7 @@ function initTabs() {
 function initEventListeners() {
     document.getElementById('btnImportar').addEventListener('click', importarExcel);
     document.getElementById('btnGenerarRuta').addEventListener('click', generarRuta);
+    document.getElementById('btnVerDisponibilidad').addEventListener('click', verDisponibilidadCobrador);
     document.getElementById('btnGuardarRuta').addEventListener('click', guardarRuta);
     document.getElementById('btnDescargarPDF').addEventListener('click', descargarPDF);
     document.getElementById('btnRegistrarGPS').addEventListener('click', registrarGPSManual);
@@ -65,6 +66,96 @@ function initEventListeners() {
             generarPDFRutaDia();
         }
     });
+}
+
+// ============== VER DISPONIBILIDAD DE COBRADOR ==============
+function verDisponibilidadCobrador() {
+    const cobrador = document.getElementById('cobradorSelect').value;
+    const container = document.getElementById('infoDisponibilidad');
+    
+    if (!cobrador) {
+        container.innerHTML = '<p style="color: #dc3545; padding: 15px; background: #f8d7da; border-radius: 8px;">⚠️ Selecciona un cobrador primero</p>';
+        return;
+    }
+    
+    // Obtener IDs de préstamos que ya están en rutas guardadas
+    const prestamosEnRutas = new Set();
+    const rutasDelCobrador = [];
+    appState.rutasGuardadas.forEach(ruta => {
+        if (ruta.cobrador === cobrador) {
+            rutasDelCobrador.push(ruta);
+        }
+        ruta.prestamos.forEach(item => {
+            prestamosEnRutas.add(item.prestamoId);
+        });
+    });
+    
+    // Estadísticas del cobrador
+    const totalPrestamosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador).length;
+    const visitadosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador && p.visitado).length;
+    const enRutasCobrador = appState.prestamos.filter(p => p.cobrador === cobrador && prestamosEnRutas.has(p.id)).length;
+    const disponibles = appState.prestamos.filter(p => 
+        p.cobrador === cobrador && 
+        !p.visitado && 
+        !prestamosEnRutas.has(p.id)
+    );
+    const disponiblesConGPS = disponibles.filter(p => p.ubicacion.tipo === 'coordenadas').length;
+    const disponiblesSinGPS = disponibles.filter(p => p.ubicacion.tipo === 'sin_visita').length;
+    
+    container.innerHTML = `
+        <div style="background: white; padding: 20px; border-radius: 10px; border-left: 5px solid #17a2b8;">
+            <h3 style="color: #17a2b8; margin-top: 0;">📊 Disponibilidad: ${cobrador}</h3>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #1976d2;">${totalPrestamosCobrador}</div>
+                    <div style="color: #1976d2; font-size: 14px;">Total Clientes</div>
+                </div>
+                <div style="background: #c8e6c9; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #388e3c;">${visitadosCobrador}</div>
+                    <div style="color: #388e3c; font-size: 14px;">✅ Visitados</div>
+                </div>
+                <div style="background: #fff9c4; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #f57c00;">${enRutasCobrador}</div>
+                    <div style="color: #f57c00; font-size: 14px;">📅 En Rutas</div>
+                </div>
+                <div style="background: #f3e5f5; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #7b1fa2;">${disponibles.length}</div>
+                    <div style="color: #7b1fa2; font-size: 14px;">🆓 Disponibles</div>
+                </div>
+            </div>
+            
+            ${disponibles.length > 0 ? `
+                <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #2e7d32;">✅ Clientes Disponibles para Nueva Ruta:</h4>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div>
+                            <strong>Con GPS:</strong> <span style="color: #2e7d32; font-size: 20px;">${disponiblesConGPS}</span>
+                        </div>
+                        <div>
+                            <strong>Sin GPS:</strong> <span style="color: #f57c00; font-size: 20px;">${disponiblesSinGPS}</span>
+                        </div>
+                    </div>
+                </div>
+            ` : `
+                <div style="background: #ffebee; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #c62828;">⚠️ <strong>No hay clientes disponibles para nueva ruta</strong></p>
+                    <p style="margin: 5px 0 0 0; color: #c62828; font-size: 14px;">Todos están visitados o ya en rutas guardadas.</p>
+                </div>
+            `}
+            
+            ${rutasDelCobrador.length > 0 ? `
+                <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #e65100;">📋 Rutas Guardadas de ${cobrador}:</h4>
+                    ${rutasDelCobrador.map(ruta => `
+                        <div style="padding: 8px; background: white; border-radius: 5px; margin-bottom: 8px;">
+                            <strong>📅 ${ruta.fecha}</strong> - ${ruta.prestamos.length} clientes
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        </div>
+    `;
 }
 
 // Establecer fecha actual
@@ -431,6 +522,11 @@ async function generarRuta() {
         });
     });
 
+    // Contar préstamos totales del cobrador
+    const totalPrestamosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador).length;
+    const visitadosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador && p.visitado).length;
+    const enRutasCobrador = appState.prestamos.filter(p => p.cobrador === cobrador && prestamosEnRutas.has(p.id)).length;
+    
     // Obtener préstamos del cobrador que NO han sido visitados Y NO están en rutas guardadas
     let prestamosCobrador = appState.prestamos.filter(p => 
         p.cobrador === cobrador && 
@@ -443,12 +539,22 @@ async function generarRuta() {
     const sinUbicacion = prestamosCobrador.filter(p => p.ubicacion.tipo === 'sin_visita');
 
     if (conUbicacion.length === 0 && sinUbicacion.length === 0) {
-        alert('No hay préstamos disponibles para este cobrador. Todos los préstamos ya están en rutas guardadas o han sido visitados.');
+        alert(`⚠️ No hay préstamos disponibles para ${cobrador}
+
+📊 Resumen:
+• Total de préstamos: ${totalPrestamosCobrador}
+• Ya visitados: ${visitadosCobrador}
+• Ya en rutas guardadas: ${enRutasCobrador}
+• Disponibles para nueva ruta: ${prestamosCobrador.length}
+
+💡 Sugerencia: Revisa la pestaña "Visitas" para ver las rutas existentes de este cobrador.`);
         return;
     }
 
     if (conUbicacion.length === 0) {
-        alert('No hay préstamos con ubicación GPS disponibles para este cobrador');
+        alert(`⚠️ ${cobrador} tiene ${sinUbicacion.length} préstamos disponibles, pero NINGUNO tiene ubicación GPS.
+
+💡 Necesitas agregar coordenadas GPS a estos préstamos antes de generar una ruta optimizada.`);
         return;
     }
 
