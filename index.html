@@ -74,7 +74,12 @@
                     <input type="number" id="minimoVisitas" value="10" min="1">
                 </div>
 
-                <button id="btnGenerarRuta" class="btn btn-primary">🗺️ Generar Ruta Optimizada</button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button id="btnGenerarRuta" class="btn btn-primary">Generar Ruta Optimizada</button>
+                    <button id="btnVerDisponibilidad" class="btn" style="background: #17a2b8; color: white;">Ver Disponibilidad</button>
+                </div>
+                
+                <div id="infoDisponibilidad" style="margin-top: 20px;"></div>
 
                 <div id="rutaGenerada" style="display:none;">
                     <h3>Ruta Generada</h3>
