@@ -3,52 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Firebase</title>
+    <title>Test Firebase - Nueva Base de Datos</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             max-width: 800px;
             margin: 50px auto;
             padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
         }
         .status {
             padding: 15px;
             margin: 10px 0;
-            border-radius: 5px;
+            border-radius: 8px;
+            font-weight: 600;
         }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
-        .info { background: #d1ecf1; color: #0c5460; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
         button {
-            padding: 10px 20px;
+            padding: 12px 25px;
             margin: 5px;
             cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        #resultado {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
         }
     </style>
 </head>
 <body>
-    <h1>🔥 Test de Conexión Firebase</h1>
-    
-    <div id="status"></div>
-    
-    <h3>Pruebas:</h3>
-    <button onclick="testConexion()">1. Probar Conexión</button>
-    <button onclick="testLectura()">2. Leer Datos</button>
-    <button onclick="testEscritura()">3. Escribir Dato de Prueba</button>
-    
-    <div id="resultado"></div>
+    <div class="container">
+        <h1>🔥 Test de Nueva Base de Datos Firebase</h1>
+        
+        <div class="status warning">
+            ⚠️ <strong>Base de Datos Nueva:</strong> bot-anuncios-limon
+        </div>
+        
+        <div id="status"></div>
+        
+        <h3>Pruebas de Conexión:</h3>
+        <button onclick="testConexion()">1. ✅ Probar Conexión</button>
+        <button onclick="testLectura()">2. 📖 Leer Datos</button>
+        <button onclick="testEscritura()">3. ✍️ Escribir Dato de Prueba</button>
+        <button onclick="crearColecciones()">4. 🗂️ Crear Colecciones Iniciales</button>
+        
+        <div id="resultado"></div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyCCGOpYBMOs6xarNs4_-nrUVJtA0HQDoWA",
-            authDomain: "rutas-d6214.firebaseapp.com",
-            projectId: "rutas-d6214",
-            storageBucket: "rutas-d6214.firebasestorage.app",
-            messagingSenderId: "656140775104",
-            appId: "1:656140775104:web:84e7f256ac64b848a80725"
+            apiKey: "AIzaSyA6-QGF78shV81aaThNs6xR62ia2_UnvMU",
+            authDomain: "bot-anuncios-limon.firebaseapp.com",
+            projectId: "bot-anuncios-limon",
+            storageBucket: "bot-anuncios-limon.firebasestorage.app",
+            messagingSenderId: "693215481882",
+            appId: "1:693215481882:web:ab627a5d8de3c9348641a3"
         };
 
         let app, db;
@@ -56,14 +91,19 @@
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
-            mostrarEstado('✅ Firebase inicializado correctamente', 'success');
+            mostrarEstado('✅ Firebase inicializado correctamente con la nueva base de datos', 'success');
         } catch (error) {
             mostrarEstado('❌ Error inicializando Firebase: ' + error.message, 'error');
         }
 
         window.testConexion = function() {
             if (db) {
-                mostrarEstado('✅ Conexión OK - Firebase está listo', 'success');
+                mostrarEstado('✅ Conexión OK - Firebase está listo para usar', 'success');
+                document.getElementById('resultado').innerHTML = `
+                    <h3 style="color: #28a745;">🎉 Conexión Exitosa</h3>
+                    <p><strong>Proyecto:</strong> bot-anuncios-limon</p>
+                    <p><strong>Estado:</strong> Activo y funcional</p>
+                `;
             } else {
                 mostrarEstado('❌ No hay conexión a Firebase', 'error');
             }
@@ -71,12 +111,15 @@
 
         window.testLectura = async function() {
             try {
-                mostrarEstado('⏳ Leyendo datos...', 'info');
+                mostrarEstado('⏳ Leyendo colección "prestamos"...', 'info');
                 const querySnapshot = await getDocs(collection(db, 'prestamos'));
                 
-                let html = `<h3>✅ Lectura exitosa: ${querySnapshot.size} documentos encontrados</h3>`;
+                let html = `<h3>📊 Lectura de colección "prestamos"</h3>`;
+                html += `<p><strong>Total documentos:</strong> ${querySnapshot.size}</p>`;
                 
-                if (querySnapshot.size > 0) {
+                if (querySnapshot.size === 0) {
+                    html += `<div class="status warning">⚠️ La colección está vacía. Esto es normal para una base de datos nueva. Importa datos desde la pestaña "Importar" en la aplicación.</div>`;
+                } else {
                     html += '<ul>';
                     let count = 0;
                     querySnapshot.forEach((doc) => {
@@ -93,7 +136,7 @@
                 }
                 
                 document.getElementById('resultado').innerHTML = html;
-                mostrarEstado('✅ Datos leídos correctamente', 'success');
+                mostrarEstado('✅ Lectura completada', 'success');
             } catch (error) {
                 mostrarEstado('❌ Error leyendo: ' + error.message, 'error');
                 console.error(error);
@@ -105,14 +148,68 @@
                 mostrarEstado('⏳ Escribiendo dato de prueba...', 'info');
                 
                 const testDoc = await addDoc(collection(db, 'test'), {
-                    mensaje: 'Prueba de escritura',
+                    mensaje: 'Prueba de escritura - Sistema de Rutas',
                     fecha: new Date().toISOString(),
-                    numero: Math.random()
+                    numero: Math.random(),
+                    version: '2.0 - Nueva Base de Datos'
                 });
                 
                 mostrarEstado('✅ Dato escrito correctamente. ID: ' + testDoc.id, 'success');
+                document.getElementById('resultado').innerHTML = `
+                    <h3 style="color: #28a745;">✅ Escritura Exitosa</h3>
+                    <p><strong>Colección:</strong> test</p>
+                    <p><strong>ID del documento:</strong> ${testDoc.id}</p>
+                    <p><strong>Resultado:</strong> Firebase puede escribir datos correctamente</p>
+                `;
             } catch (error) {
                 mostrarEstado('❌ Error escribiendo: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        window.crearColecciones = async function() {
+            try {
+                mostrarEstado('⏳ Creando estructura inicial de colecciones...', 'info');
+                
+                // Crear documento de ejemplo en "prestamos"
+                const prestamo = await addDoc(collection(db, 'prestamos'), {
+                    numeroPrestamo: "EJEMPLO-001",
+                    nombreCliente: "Cliente de Ejemplo",
+                    cobrador: "Sin asignar",
+                    municipio: "GUATEMALA",
+                    departamento: "GUATEMALA",
+                    direccion: "Dirección de ejemplo",
+                    ubicacion: {
+                        lat: 14.6349,
+                        lng: -90.5069,
+                        tipo: "coordenadas"
+                    },
+                    tipoVisita: "domiciliar",
+                    visitado: false,
+                    fechaImportacion: new Date().toISOString()
+                });
+
+                // Crear documento de ejemplo en "rutas"
+                const ruta = await addDoc(collection(db, 'rutas'), {
+                    cobrador: "Ejemplo",
+                    fecha: new Date().toISOString().split('T')[0],
+                    prestamos: [],
+                    totalVisitas: 0,
+                    fechaCreacion: new Date().toISOString(),
+                    completada: false
+                });
+
+                mostrarEstado('✅ Colecciones creadas exitosamente', 'success');
+                document.getElementById('resultado').innerHTML = `
+                    <h3 style="color: #28a745;">🗂️ Colecciones Inicializadas</h3>
+                    <p>✅ Colección "prestamos" creada (ID: ${prestamo.id})</p>
+                    <p>✅ Colección "rutas" creada (ID: ${ruta.id})</p>
+                    <div class="status info" style="margin-top: 15px;">
+                        ℹ️ <strong>Siguiente paso:</strong> Ve a la aplicación principal y usa la pestaña "Importar" para cargar tu archivo Excel con los datos reales.
+                    </div>
+                `;
+            } catch (error) {
+                mostrarEstado('❌ Error creando colecciones: ' + error.message, 'error');
                 console.error(error);
             }
         }
@@ -122,6 +219,13 @@
             div.className = 'status ' + tipo;
             div.textContent = mensaje;
         }
+
+        // Auto-test al cargar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testConexion();
+            }, 500);
+        });
     </script>
 </body>
 </html>
