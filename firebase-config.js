@@ -1,14 +1,14 @@
-// firebase-config.js
+// firebase-config.js - Configuración actualizada
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCCGOpYBMOs6xarNs4_-nrUVJtA0HQDoWA",
-  authDomain: "rutas-d6214.firebaseapp.com",
-  projectId: "rutas-d6214",
-  storageBucket: "rutas-d6214.firebasestorage.app",
-  messagingSenderId: "656140775104",
-  appId: "1:656140775104:web:84e7f256ac64b848a80725"
+  apiKey: "AIzaSyA6-QGF78shV81aaThNs6xR62ia2_UnvMU",
+  authDomain: "bot-anuncios-limon.firebaseapp.com",
+  projectId: "bot-anuncios-limon",
+  storageBucket: "bot-anuncios-limon.firebasestorage.app",
+  messagingSenderId: "693215481882",
+  appId: "1:693215481882:web:ab627a5d8de3c9348641a3"
 };
 
 // Initialize Firebase
