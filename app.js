@@ -1,4 +1,4 @@
-/ app.js - Sistema de Rutas v2.1 - Distancias Mejoradas
+// app.js - Sistema de Rutas v2.1 - Distancias Mejoradas
 // Última actualización: 2025-12-03
 import { db, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from './firebase-config.js';
 
@@ -41,7 +41,6 @@ function initTabs() {
         });
     });
 }
-
 // Event Listeners
 function initEventListeners() {
     document.getElementById('btnImportar').addEventListener('click', importarExcel);
@@ -59,22 +58,22 @@ function initEventListeners() {
     document.getElementById('btnVerPendientes').addEventListener('click', () => cargarVisitasRuta(true));
     document.getElementById('btnVerTodos').addEventListener('click', () => cargarVisitasRuta(false));
     document.getElementById('btnEliminarRuta').addEventListener('click', eliminarRutaSeleccionada);
-
-    // Agregar estos 3 dentro de initEventListeners(), después de los otros
-const btnExportarTodo = document.getElementById('btnExportarTodo');
-if (btnExportarTodo) {
-    btnExportarTodo.addEventListener('click', exportarAExcel);
-}
-
-const btnExportarVisitados = document.getElementById('btnExportarVisitados');
-if (btnExportarVisitados) {
-    btnExportarVisitados.addEventListener('click', exportarVisitados);
-}
-
-const btnExportarPendientes = document.getElementById('btnExportarPendientes');
-if (btnExportarPendientes) {
-    btnExportarPendientes.addEventListener('click', exportarPendientes);
-}
+    
+    // Event listeners para exportación
+    const btnExportarTodo = document.getElementById('btnExportarTodo');
+    if (btnExportarTodo) {
+        btnExportarTodo.addEventListener('click', exportarAExcel);
+    }
+    
+    const btnExportarVisitados = document.getElementById('btnExportarVisitados');
+    if (btnExportarVisitados) {
+        btnExportarVisitados.addEventListener('click', exportarVisitados);
+    }
+    
+    const btnExportarPendientes = document.getElementById('btnExportarPendientes');
+    if (btnExportarPendientes) {
+        btnExportarPendientes.addEventListener('click', exportarPendientes);
+    }
     
     // Usar delegación de eventos para botones que pueden no existir inicialmente
     document.addEventListener('click', (e) => {
@@ -83,7 +82,6 @@ if (btnExportarPendientes) {
         }
     });
 }
-
 // ============== VER DISPONIBILIDAD DE COBRADOR ==============
 function verDisponibilidadCobrador() {
     const cobrador = document.getElementById('cobradorSelect').value;
@@ -2877,9 +2875,6 @@ async function generarPDFRutaDia() {
 }
 
 // ============== EXPORTAR A EXCEL ==============
-// COPIAR ESTAS FUNCIONES AL FINAL DE TU app.js
-// JUSTO ANTES DE: window.appState = appState;
-
 async function exportarAExcel() {
     try {
         const statusDiv = document.getElementById('exportStatus');
@@ -2944,7 +2939,6 @@ async function exportarAExcel() {
         });
 
         const wb = XLSX.utils.book_new();
-        
         const ws = XLSX.utils.json_to_sheet(datosExcel);
 
         const columnWidths = [
@@ -2964,7 +2958,6 @@ async function exportarAExcel() {
             const prestamosCobrador = datosExcel.filter(p => p.Cobrador === cobrador);
             const wsCobrador = XLSX.utils.json_to_sheet(prestamosCobrador);
             wsCobrador['!cols'] = columnWidths;
-            
             let nombreHoja = cobrador.substring(0, 31);
             XLSX.utils.book_append_sheet(wb, wsCobrador, nombreHoja);
         });
@@ -3116,10 +3109,6 @@ async function exportarPendientes() {
         alert('❌ Error al exportar: ' + error.message);
     }
 }
-
-// DESPUÉS DE ESTAS 3 FUNCIONES, CONTINÚA CON:
-// window.appState = appState;
-
 
 
 // Exportar funciones globales si es necesario
