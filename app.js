@@ -1,4 +1,4 @@
-// app.js - Sistema de Rutas v2.2 - Con Exportación a Excel
+// app.js - Sistema de Rutas v2.2 - PARTE 1
 // Última actualización: 2025-01-10
 import { db, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from './firebase-config.js';
 
@@ -177,11 +177,14 @@ function setFechaActual() {
     document.getElementById('fechaRuta').value = hoy;
 }
 
-// Continúa en el siguiente mensaje debido al límite de caracteres...
-// El archivo es muy extenso. Te sugiero que copies el app.js original y solo agregues
-// las funciones de exportación al final del archivo antes de "window.appState = appState;"
+// CONTINÚA EN PARTE 2...
+// Copia TODO tu código actual desde importarExcel() hasta 
+// justo antes de window.appState = appState;
 
 // ============== EXPORTAR A EXCEL ==============
+// COPIAR ESTAS FUNCIONES AL FINAL DE TU app.js
+// JUSTO ANTES DE: window.appState = appState;
+
 async function exportarAExcel() {
     try {
         const statusDiv = document.getElementById('exportStatus');
@@ -419,9 +422,5 @@ async function exportarPendientes() {
     }
 }
 
-// IMPORTANTE: Copia TODAS las demás funciones de tu app.js original aquí
-// (importarExcel, procesarDatos, cargarDatosFirebase, generarRuta, etc.)
-// Solo agregué las 3 funciones de exportación arriba
-
-// Al final del archivo, mantén:
-window.appState = appState;
+// DESPUÉS DE ESTAS 3 FUNCIONES, CONTINÚA CON:
+// window.appState = appState;
