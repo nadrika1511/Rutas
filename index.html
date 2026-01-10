@@ -15,18 +15,19 @@
         </header>
 
         <nav class="tabs">
-            <button class="tab-btn active" data-tab="import">Importar</button>
-            <button class="tab-btn" data-tab="cobradores">Cobradores</button>
-            <button class="tab-btn" data-tab="rutas">Generar Ruta</button>
-            <button class="tab-btn" data-tab="visitas">Visitas</button>
-            <button class="tab-btn" data-tab="buscar">Buscar</button>
-            <button class="tab-btn" data-tab="reportes">Reportes</button>
+            <button class="tab-btn active" data-tab="import">📂 Importar</button>
+            <button class="tab-btn" data-tab="cobradores">👥 Cobradores</button>
+            <button class="tab-btn" data-tab="rutas">🚗 Generar Ruta</button>
+            <button class="tab-btn" data-tab="visitas">✅ Visitas</button>
+            <button class="tab-btn" data-tab="buscar">🔍 Buscar</button>
+            <button class="tab-btn" data-tab="exportar">📥 Exportar</button>
+            <button class="tab-btn" data-tab="reportes">📊 Reportes</button>
         </nav>
 
         <!-- TAB: IMPORTAR -->
         <div class="tab-content active" id="import">
             <div class="card">
-                <h2>Importar Datos desde Excel</h2>
+                <h2>📂 Importar Datos desde Excel</h2>
                 <input type="file" id="excelFile" accept=".xlsx,.xls">
                 <button id="btnImportar" class="btn btn-primary">Cargar Archivo</button>
                 <div id="importStatus"></div>
@@ -43,7 +44,7 @@
         <!-- TAB: COBRADORES -->
         <div class="tab-content" id="cobradores">
             <div class="card">
-                <h2>Cobradores y Cartera</h2>
+                <h2>👥 Cobradores y Cartera</h2>
                 <div id="cobradoresList"></div>
             </div>
         </div>
@@ -51,7 +52,7 @@
         <!-- TAB: GENERAR RUTAS -->
         <div class="tab-content" id="rutas">
             <div class="card">
-                <h2>Generador de Rutas Optimizadas</h2>
+                <h2>🚗 Generador de Rutas Optimizadas</h2>
                 
                 <div class="form-group">
                     <label>Cobrador:</label>
@@ -75,8 +76,8 @@
                 </div>
 
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button id="btnGenerarRuta" class="btn btn-primary">Generar Ruta Optimizada</button>
-                    <button id="btnVerDisponibilidad" class="btn" style="background: #17a2b8; color: white;">Ver Disponibilidad</button>
+                    <button id="btnGenerarRuta" class="btn btn-primary">🗺️ Generar Ruta Optimizada</button>
+                    <button id="btnVerDisponibilidad" class="btn" style="background: #17a2b8; color: white;">📊 Ver Disponibilidad</button>
                 </div>
                 
                 <div id="infoDisponibilidad" style="margin-top: 20px;"></div>
@@ -87,7 +88,7 @@
                     <div id="mapaRuta" style="height: 500px; margin: 20px 0;"></div>
                     <div id="rutaDetalle"></div>
                     <button id="btnGuardarRuta" class="btn btn-success">💾 Guardar Ruta</button>
-                    <button id="btnDescargarPDF" class="btn btn-warning"> Descargar PDF</button>
+                    <button id="btnDescargarPDF" class="btn btn-warning">📄 Descargar PDF</button>
                 </div>
             </div>
         </div>
@@ -95,7 +96,7 @@
         <!-- TAB: VISITAS -->
         <div class="tab-content" id="visitas">
             <div class="card">
-                <h2>Registro de Visitas</h2>
+                <h2>✅ Registro de Visitas</h2>
                 
                 <div class="form-group">
                     <label>Seleccionar Ruta:</label>
@@ -105,20 +106,20 @@
                 <!-- Botones de Gestión de Ruta -->
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
                     <button id="btnVerPendientes" class="btn" style="background: #ff9800; display: none;">
-                         Ver Solo Pendientes
+                        ⏳ Ver Solo Pendientes
                     </button>
                     <button id="btnVerTodos" class="btn" style="background: #2196f3; display: none;">
-                         Ver Todos
+                        📋 Ver Todos
                     </button>
                     <button id="btnEliminarRuta" class="btn" style="background: #dc3545; display: none;">
-                         Eliminar Ruta
+                        🗑️ Eliminar Ruta
                     </button>
                 </div>
 
                 <div id="visitasList"></div>
 
                 <div class="card" style="margin-top: 20px; background: #f0f9ff;">
-                    <h3>Registrar Ubicación Manual</h3>
+                    <h3>📍 Registrar Ubicación Manual</h3>
                     <div class="form-group">
                         <label>Préstamo:</label>
                         <select id="prestamoManual"></select>
@@ -136,7 +137,7 @@
         <!-- TAB: BUSCAR -->
         <div class="tab-content" id="buscar">
             <div class="card">
-                <h2>Buscar Cliente</h2>
+                <h2>🔍 Buscar Cliente</h2>
                 <p style="color: #6c757d; margin-bottom: 20px;">
                     Busca clientes por número de préstamo, DPI o nombre. Se mostrarán todas las ubicaciones del cliente.
                 </p>
@@ -150,25 +151,88 @@
             </div>
         </div>
 
+        <!-- TAB: EXPORTAR -->
+        <div class="tab-content" id="exportar">
+            <div class="card">
+                <h2>📥 Exportar Base de Datos a Excel</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">
+                    Descarga toda la información de la base de datos en formato Excel. Se generarán múltiples hojas organizadas.
+                </p>
+
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; color: white; margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 10px 0; color: white;">📊 Exportación Completa</h3>
+                    <p style="margin: 5px 0; opacity: 0.9;">Incluye:</p>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>Todos los préstamos con datos completos</li>
+                        <li>Hojas separadas por cobrador</li>
+                        <li>Hoja de estadísticas generales</li>
+                        <li>Historial de visitas y desviaciones</li>
+                    </ul>
+                    <button id="btnExportarTodo" class="btn" style="background: white; color: #667eea; font-size: 16px; margin-top: 10px;">
+                        📊 Exportar Todo a Excel
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                    <!-- Exportar Visitados -->
+                    <div style="background: #d4edda; padding: 20px; border-radius: 10px; border-left: 5px solid #28a745;">
+                        <h4 style="color: #155724; margin: 0 0 10px 0;">✅ Solo Visitados</h4>
+                        <p style="color: #155724; margin: 0 0 15px 0; font-size: 14px;">
+                            Exporta únicamente los préstamos que ya fueron visitados con sus ubicaciones reales y desviaciones.
+                        </p>
+                        <button id="btnExportarVisitados" class="btn" style="background: #28a745; color: white; width: 100%;">
+                            📥 Exportar Visitados
+                        </button>
+                    </div>
+
+                    <!-- Exportar Pendientes -->
+                    <div style="background: #fff3cd; padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107;">
+                        <h4 style="color: #856404; margin: 0 0 10px 0;">⏳ Solo Pendientes</h4>
+                        <p style="color: #856404; margin: 0 0 15px 0; font-size: 14px;">
+                            Exporta únicamente los préstamos pendientes de visitar para planificar nuevas rutas.
+                        </p>
+                        <button id="btnExportarPendientes" class="btn" style="background: #ffc107; color: #212529; width: 100%;">
+                            📥 Exportar Pendientes
+                        </button>
+                    </div>
+                </div>
+
+                <div id="exportStatus"></div>
+
+                <!-- Información sobre el formato -->
+                <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                    <h4 style="color: #1976d2; margin: 0 0 10px 0;">ℹ️ Información del Archivo Excel</h4>
+                    <p style="color: #0d47a1; margin: 5px 0;"><strong>Formato de exportación:</strong></p>
+                    <ul style="color: #0d47a1; margin: 10px 0; padding-left: 20px;">
+                        <li>Ubicaciones GPS en formato: <code>latitud,longitud</code></li>
+                        <li>Fechas en formato local de Guatemala</li>
+                        <li>Desviaciones en kilómetros y metros</li>
+                        <li>Información de historial de visitas</li>
+                    </ul>
+                    <p style="color: #0d47a1; margin: 5px 0;"><strong>Nombre del archivo:</strong> Base_Datos_Rutas_YYYY-MM-DD.xlsx</p>
+                </div>
+            </div>
+        </div>
+
         <!-- TAB: REPORTES -->
         <div class="tab-content" id="reportes">
             <div class="card">
-                <h2>Dashboard General</h2>
+                <h2>📊 Dashboard General</h2>
                 <div id="dashboardGeneral"></div>
             </div>
             
             <div class="card">
-                <h2> Estadísticas por Cobrador</h2>
+                <h2>👥 Estadísticas por Cobrador</h2>
                 <div id="estadisticasCobradores"></div>
             </div>
             
             <div class="card">
-                <h2> Estadísticas Detalladas</h2>
+                <h2>📈 Estadísticas Detalladas</h2>
                 <div id="estadisticas"></div>
             </div>
 
             <div class="card">
-                <h2> Imprimir Ruta del Día</h2>
+                <h2>📄 Imprimir Ruta del Día</h2>
                 <p style="color: #6c757d; margin-bottom: 20px;">
                     Genera un PDF con el detalle completo de una ruta específica para imprimir y entregar al cobrador.
                 </p>
@@ -179,7 +243,7 @@
                 </div>
 
                 <button id="btnGenerarPDFRuta" class="btn btn-warning" style="font-size: 18px;">
-                     Generar PDF de Ruta
+                    📄 Generar PDF de Ruta
                 </button>
             </div>
         </div>
