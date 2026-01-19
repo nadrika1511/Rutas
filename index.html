@@ -3,258 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Rutas - Avanta</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Sistema de Rutas de Cobranza - Avanta</title>
+    
+    <!-- Leaflet CSS para mapas -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #mapaRuta {
+            width: 100%;
+            height: 500px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-domiciliar {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-laboral {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🗺️ Sistema de Rutas de Cobranza</h1>
-            <div id="userInfo"></div>
-        </header>
+        <h1>🗺️ Sistema de Rutas de Cobranza</h1>
+        <p class="subtitle">Generador de rutas optimizadas para cobradores</p>
 
-        <nav class="tabs">
-            <button class="tab-btn active" data-tab="import">📂 Importar</button>
-            <button class="tab-btn" data-tab="cobradores">👥 Cobradores</button>
-            <button class="tab-btn" data-tab="rutas">🚗 Generar Ruta</button>
-            <button class="tab-btn" data-tab="visitas">✅ Visitas</button>
-            <button class="tab-btn" data-tab="buscar">🔍 Buscar</button>
-            <button class="tab-btn" data-tab="exportar">📥 Exportar</button>
-            <button class="tab-btn" data-tab="reportes">📊 Reportes</button>
-        </nav>
-
-        <!-- TAB: IMPORTAR -->
-        <div class="tab-content active" id="import">
-            <div class="card">
-                <h2>📂 Importar Datos desde Excel</h2>
-                <input type="file" id="excelFile" accept=".xlsx,.xls">
-                <button id="btnImportar" class="btn btn-primary">Cargar Archivo</button>
-                <div id="importStatus"></div>
-                <div id="progressContainer" style="display:none; margin-top: 20px;">
-                    <div style="background: #e9ecef; border-radius: 10px; height: 30px; overflow: hidden;">
-                        <div id="progressBar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;"></div>
-                    </div>
-                    <p id="progressText" style="text-align: center; margin-top: 10px; color: #495057; font-weight: 600;"></p>
-                </div>
-                <div id="importPreview"></div>
+        <!-- SECCIÓN: Selección de Cobrador -->
+        <div class="section">
+            <h2>1. Seleccionar Cobrador</h2>
+            <div class="form-group">
+                <label for="cobradorSelect">Cobrador:</label>
+                <select id="cobradorSelect">
+                    <option value="">-- Cargando cobradores... --</option>
+                </select>
             </div>
         </div>
 
-        <!-- TAB: COBRADORES -->
-        <div class="tab-content" id="cobradores">
-            <div class="card">
-                <h2>👥 Cobradores y Cartera</h2>
-                <div id="cobradoresList"></div>
+        <!-- SECCIÓN: Parámetros de Ruta -->
+        <div class="section">
+            <h2>2. Configurar Ruta</h2>
+            <div class="form-group">
+                <label for="puntoInicio">Punto de Inicio (Latitud, Longitud):</label>
+                <input 
+                    type="text" 
+                    id="puntoInicio" 
+                    placeholder="Ejemplo: 14.6349,-90.5069"
+                    value="14.6349,-90.5069"
+                >
             </div>
+            <div class="form-group">
+                <label for="minimoVisitas">Mínimo de Visitas:</label>
+                <input 
+                    type="number" 
+                    id="minimoVisitas" 
+                    value="10"
+                    min="1"
+                    max="100"
+                >
+            </div>
+            <button id="btnGenerarRuta">🚀 Generar Ruta Optimizada</button>
         </div>
 
-        <!-- TAB: GENERAR RUTAS -->
-        <div class="tab-content" id="rutas">
-            <div class="card">
-                <h2>🚗 Generador de Rutas Optimizadas</h2>
-                
-                <div class="form-group">
-                    <label>Cobrador:</label>
-                    <select id="cobradorSelect"></select>
-                </div>
+        <!-- SECCIÓN: Mapa -->
+        <div class="section">
+            <h2>3. Mapa de Ruta</h2>
+            <div id="mapaRuta"></div>
+        </div>
 
-                <div class="form-group">
-                    <label>Fecha de la Ruta:</label>
-                    <input type="date" id="fechaRuta">
+        <!-- SECCIÓN: Estadísticas -->
+        <div class="section">
+            <h2>4. Resumen de Ruta</h2>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalVisitas">0</div>
+                    <div class="stat-label">Total Visitas</div>
                 </div>
-
-                <div class="form-group">
-                    <label>Punto de Inicio (GPS):</label>
-                    <input type="text" id="puntoInicio" placeholder="14.6349,-90.5069">
-                    <small>Formato: latitud,longitud</small>
+                <div class="stat-card">
+                    <div class="stat-value" id="distanciaTotal">0</div>
+                    <div class="stat-label">Distancia Total</div>
                 </div>
-
-                <div class="form-group">
-                    <label>Mínimo de Visitas en la Ruta:</label>
-                    <input type="number" id="minimoVisitas" value="10" min="1">
-                </div>
-
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button id="btnGenerarRuta" class="btn btn-primary">🗺️ Generar Ruta Optimizada</button>
-                    <button id="btnVerDisponibilidad" class="btn" style="background: #17a2b8; color: white;">📊 Ver Disponibilidad</button>
-                </div>
-                
-                <div id="infoDisponibilidad" style="margin-top: 20px;"></div>
-
-                <div id="rutaGenerada" style="display:none;">
-                    <h3>Ruta Generada</h3>
-                    <div id="rutaStats"></div>
-                    <div id="mapaRuta" style="height: 500px; margin: 20px 0;"></div>
-                    <div id="rutaDetalle"></div>
-                    <button id="btnGuardarRuta" class="btn btn-success">💾 Guardar Ruta</button>
-                    <button id="btnDescargarPDF" class="btn btn-warning">📄 Descargar PDF</button>
+                <div class="stat-card">
+                    <div class="stat-value" id="tiempoTotal">0</div>
+                    <div class="stat-label">Tiempo Estimado</div>
                 </div>
             </div>
         </div>
 
-        <!-- TAB: VISITAS -->
-        <div class="tab-content" id="visitas">
-            <div class="card">
-                <h2>✅ Registro de Visitas</h2>
-                
-                <div class="form-group">
-                    <label>Seleccionar Ruta:</label>
-                    <select id="rutaSelectVisita"></select>
-                </div>
-
-                <!-- Botones de Gestión de Ruta -->
-                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-                    <button id="btnVerPendientes" class="btn" style="background: #ff9800; display: none;">
-                        ⏳ Ver Solo Pendientes
-                    </button>
-                    <button id="btnVerTodos" class="btn" style="background: #2196f3; display: none;">
-                        📋 Ver Todos
-                    </button>
-                    <button id="btnEliminarRuta" class="btn" style="background: #dc3545; display: none;">
-                        🗑️ Eliminar Ruta
-                    </button>
-                </div>
-
-                <div id="visitasList"></div>
-
-                <div class="card" style="margin-top: 20px; background: #f0f9ff;">
-                    <h3>📍 Registrar Ubicación Manual</h3>
-                    <div class="form-group">
-                        <label>Préstamo:</label>
-                        <select id="prestamoManual"></select>
-                    </div>
-                    <div class="form-group">
-                        <label>Ubicación GPS:</label>
-                        <input type="text" id="gpsManual" placeholder="14.6349,-90.5069">
-                    </div>
-                    <button id="btnRegistrarGPS" class="btn btn-primary">📍 Registrar Ubicación</button>
-                    <div id="distanciaInfo"></div>
-                </div>
+        <!-- SECCIÓN: Tabla de Ruta -->
+        <div class="section">
+            <h2>5. Detalle de Visitas</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Préstamo</th>
+                            <th>Cliente</th>
+                            <th>Municipio</th>
+                            <th>Dirección</th>
+                            <th>Tipo</th>
+                            <th>Distancia</th>
+                            <th>Tiempo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaRutaBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 20px; color: #666;">
+                                Genera una ruta para ver los detalles
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- TAB: BUSCAR -->
-        <div class="tab-content" id="buscar">
-            <div class="card">
-                <h2>🔍 Buscar Cliente</h2>
-                <p style="color: #6c757d; margin-bottom: 20px;">
-                    Busca clientes por número de préstamo, DPI o nombre. Se mostrarán todas las ubicaciones del cliente.
-                </p>
-                
-                <div class="form-group">
-                    <label>Buscar:</label>
-                    <input type="text" id="inputBuscarCliente" placeholder="Número de préstamo, DPI o nombre..." style="font-size: 16px;">
-                </div>
-
-                <div id="resultadosBusqueda"></div>
-            </div>
-        </div>
-
-        <!-- TAB: EXPORTAR -->
-        <div class="tab-content" id="exportar">
-            <div class="card">
-                <h2>📥 Exportar Base de Datos a Excel</h2>
-                <p style="color: #6c757d; margin-bottom: 20px;">
-                    Descarga toda la información de la base de datos en formato Excel. Se generarán múltiples hojas organizadas.
-                </p>
-
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; color: white; margin-bottom: 20px;">
-                    <h3 style="margin: 0 0 10px 0; color: white;">📊 Exportación Completa</h3>
-                    <p style="margin: 5px 0; opacity: 0.9;">Incluye:</p>
-                    <ul style="margin: 10px 0; padding-left: 20px;">
-                        <li>Todos los préstamos con datos completos</li>
-                        <li>Hojas separadas por cobrador</li>
-                        <li>Hoja de estadísticas generales</li>
-                        <li>Historial de visitas y desviaciones</li>
-                    </ul>
-                    <button id="btnExportarTodo" class="btn" style="background: white; color: #667eea; font-size: 16px; margin-top: 10px;">
-                        📊 Exportar Todo a Excel
-                    </button>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
-                    <!-- Exportar Visitados -->
-                    <div style="background: #d4edda; padding: 20px; border-radius: 10px; border-left: 5px solid #28a745;">
-                        <h4 style="color: #155724; margin: 0 0 10px 0;">✅ Solo Visitados</h4>
-                        <p style="color: #155724; margin: 0 0 15px 0; font-size: 14px;">
-                            Exporta únicamente los préstamos que ya fueron visitados con sus ubicaciones reales y desviaciones.
-                        </p>
-                        <button id="btnExportarVisitados" class="btn" style="background: #28a745; color: white; width: 100%;">
-                            📥 Exportar Visitados
-                        </button>
-                    </div>
-
-                    <!-- Exportar Pendientes -->
-                    <div style="background: #fff3cd; padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107;">
-                        <h4 style="color: #856404; margin: 0 0 10px 0;">⏳ Solo Pendientes</h4>
-                        <p style="color: #856404; margin: 0 0 15px 0; font-size: 14px;">
-                            Exporta únicamente los préstamos pendientes de visitar para planificar nuevas rutas.
-                        </p>
-                        <button id="btnExportarPendientes" class="btn" style="background: #ffc107; color: #212529; width: 100%;">
-                            📥 Exportar Pendientes
-                        </button>
-                    </div>
-                </div>
-
-                <div id="exportStatus"></div>
-
-                <!-- Información sobre el formato -->
-                <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; margin-top: 20px;">
-                    <h4 style="color: #1976d2; margin: 0 0 10px 0;">ℹ️ Información del Archivo Excel</h4>
-                    <p style="color: #0d47a1; margin: 5px 0;"><strong>Formato de exportación:</strong></p>
-                    <ul style="color: #0d47a1; margin: 10px 0; padding-left: 20px;">
-                        <li>Ubicaciones GPS en formato: <code>latitud,longitud</code></li>
-                        <li>Fechas en formato local de Guatemala</li>
-                        <li>Desviaciones en kilómetros y metros</li>
-                        <li>Información de historial de visitas</li>
-                    </ul>
-                    <p style="color: #0d47a1; margin: 5px 0;"><strong>Nombre del archivo:</strong> Base_Datos_Rutas_YYYY-MM-DD.xlsx</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB: REPORTES -->
-        <div class="tab-content" id="reportes">
-            <div class="card">
-                <h2>📊 Dashboard General</h2>
-                <div id="dashboardGeneral"></div>
-            </div>
-            
-            <div class="card">
-                <h2>👥 Estadísticas por Cobrador</h2>
-                <div id="estadisticasCobradores"></div>
-            </div>
-            
-            <div class="card">
-                <h2>📈 Estadísticas Detalladas</h2>
-                <div id="estadisticas"></div>
-            </div>
-
-            <div class="card">
-                <h2>📄 Imprimir Ruta del Día</h2>
-                <p style="color: #6c757d; margin-bottom: 20px;">
-                    Genera un PDF con el detalle completo de una ruta específica para imprimir y entregar al cobrador.
-                </p>
-                
-                <div class="form-group">
-                    <label>Seleccionar Ruta:</label>
-                    <select id="rutaSelectPDF"></select>
-                </div>
-
-                <button id="btnGenerarPDFRuta" class="btn btn-warning" style="font-size: 18px;">
-                    📄 Generar PDF de Ruta
-                </button>
-            </div>
+        <!-- SECCIÓN: Acciones -->
+        <div class="section">
+            <h2>6. Acciones</h2>
+            <button id="btnGuardarRuta" disabled>💾 Guardar Ruta</button>
+            <button id="btnDescargarPDF" disabled>📄 Descargar PDF</button>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <script src="app.js"></script>
+    <!-- SCRIPTS -->
     
+    <!-- Leaflet JS para mapas -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Firebase Config (debe ser type="module") -->
+    <script type="module" src="firebase-config.js"></script>
+    
+    <!-- App.js (debe ser type="module") -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>
