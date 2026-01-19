@@ -113,8 +113,8 @@ function verDisponibilidadCobrador() {
         !p.visitado && 
         !prestamosEnRutas.has(p.id)
     );
-    const disponiblesConGPS = disponibles.filter(p => p.ubicacion.tipo === 'coordenadas').length;
-    const disponiblesSinGPS = disponibles.filter(p => p.ubicacion.tipo === 'sin_visita').length;
+    const disponiblesConGPS = disponibles.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'coordenadas').length;
+    const disponiblesSinGPS = disponibles.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'sin_visita').length;
     
     container.innerHTML = `
         <div style="background: white; padding: 20px; border-radius: 10px; border-left: 5px solid #17a2b8;">
@@ -262,23 +262,13 @@ async function procesarDatos(datos) {
     const prestamosRef = collection(db, 'prestamos');
     const totalRegistros = datos.length;
     
-    // Cargar préstamos existentes para actualizar en lugar de duplicar
-    actualizarProgreso(55, 'Cargando datos existentes...');
-    const prestamosExistentesSnapshot = await getDocs(prestamosRef);
-    const prestamosExistentes = {};
+    // CADA REGISTRO DEL EXCEL SERÁ ÚNICO
+    // No se verifican duplicados por número de préstamo
+    // Cada fila del Excel crea un nuevo registro en Firebase
+    actualizarProgreso(55, 'Preparando importación...');
     
-    prestamosExistentesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const clave = `${data.numeroPrestamo}-${data.tipoVisita}`;
-        prestamosExistentes[clave] = {
-            id: doc.id,
-            ...data
-        };
-    });
+    console.log(`📦 Cada registro será único independiente del número de préstamo`);
     
-    console.log(`📦 ${Object.keys(prestamosExistentes).length} préstamos existentes en Firebase`);
-    
-    let actualizados = 0;
     let nuevos = 0;
     
     for (let i = 0; i < datos.length; i++) {
@@ -334,9 +324,6 @@ async function procesarDatos(datos) {
             });
         }
         
-        const numeroPrestamo = row['PRESTAMO'] || row['Prestamo'] || '';
-        const clave = `${numeroPrestamo}-${tipoVisita}`;
-        const prestamoExistente = prestamosExistentes[clave];
         
         const datosPrestamo = {
             numeroPrestamo: numeroPrestamo,
@@ -354,46 +341,23 @@ async function procesarDatos(datos) {
         };
 
         try {
-            if (prestamoExistente) {
-                // ACTUALIZAR SOLO campos básicos - NUNCA tocar campos de visita
-                const camposActualizar = {
-                    // Datos básicos del Excel (se pueden actualizar)
-                    nombreCliente: datosPrestamo.nombreCliente,
-                    nombreEmpresa: datosPrestamo.nombreEmpresa,
-                    dpi: datosPrestamo.dpi,
-                    cobrador: datosPrestamo.cobrador,
-                    direccion: datosPrestamo.direccion,
-                    municipio: datosPrestamo.municipio,
-                    departamento: datosPrestamo.departamento,
-                    enCarteraPasada: datosPrestamo.enCarteraPasada,
-                    tipoVisita: datosPrestamo.tipoVisita,
-                    ubicacion: datosPrestamo.ubicacion,
-                    fechaImportacion: datosPrestamo.fechaImportacion
-                };
-                
-                // NO incluir: visitado, fechaVisita, ubicacionReal, historialVisitas
-                // Estos campos SOLO se modifican cuando se marca como visitado
-                
-                await updateDoc(doc(db, 'prestamos', prestamoExistente.id), camposActualizar);
-                actualizados++;
-            } else {
-                // CREAR nuevo préstamo
-                await addDoc(prestamosRef, {
-                    ...datosPrestamo,
-                    visitado: false,
-                    fechaVisita: null,
-                    ubicacionReal: null,
-                    historialVisitas: []
-                });
-                nuevos++;
-            }
+            // SIEMPRE CREAR un nuevo registro único
+            // Cada fila del Excel es un registro independiente
+            await addDoc(prestamosRef, {
+                ...datosPrestamo,
+                visitado: false,
+                fechaVisita: null,
+                ubicacionReal: null,
+                historialVisitas: []
+            });
+            nuevos++;
         } catch (error) {
             console.error(`Error procesando préstamo ${numeroPrestamo}:`, error);
             // Continuar con el siguiente
         }
     }
     
-    console.log(`✅ Importación completada: ${actualizados} actualizados, ${nuevos} nuevos`);
+    console.log(`✅ Importación completada: ${nuevos} registros únicos creados`);
 }
 
 function extraerCoordenadas(ubicacionStr) {
@@ -432,9 +396,28 @@ async function cargarDatosFirebase() {
         appState.prestamos = [];
         
         prestamosSnapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // Validar y crear objeto con valores por defecto
             appState.prestamos.push({
                 id: doc.id,
-                ...doc.data()
+                numeroPrestamo: data.numeroPrestamo || '',
+                nombreCliente: data.nombreCliente || '',
+                nombreEmpresa: data.nombreEmpresa || '',
+                dpi: data.dpi || '',
+                cobrador: data.cobrador || 'Sin asignar',
+                direccion: data.direccion || '',
+                municipio: data.municipio || '',
+                departamento: data.departamento || '',
+                enCarteraPasada: data.enCarteraPasada || '',
+                tipoVisita: data.tipoVisita || 'domiciliar',
+                // Asegurar que ubicacion siempre tenga estructura correcta
+                ubicacion: data.ubicacion && data.ubicacion.tipo ? data.ubicacion : { lat: null, lng: null, tipo: 'sin_visita' },
+                visitado: data.visitado || false,
+                fechaVisita: data.fechaVisita || null,
+                ubicacionReal: data.ubicacionReal || null,
+                historialVisitas: data.historialVisitas || [],
+                fechaImportacion: data.fechaImportacion || new Date().toISOString()
             });
         });
 
@@ -470,8 +453,8 @@ function actualizarUICobradores() {
 
     appState.cobradores.forEach(cobrador => {
         const prestamos = appState.prestamos.filter(p => p.cobrador === cobrador);
-        const conUbicacion = prestamos.filter(p => p.ubicacion.tipo === 'coordenadas').length;
-        const sinUbicacion = prestamos.filter(p => p.ubicacion.tipo === 'sin_visita').length;
+        const conUbicacion = prestamos.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'coordenadas').length;
+        const sinUbicacion = prestamos.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'sin_visita').length;
         const visitados = prestamos.filter(p => p.visitado).length;
         const enRutas = prestamos.filter(p => prestamosEnRutas.has(p.id)).length;
         const disponibles = prestamos.length - visitados - enRutas;
@@ -568,8 +551,8 @@ async function generarRuta() {
     );
 
     // Separar con y sin ubicación
-    const conUbicacion = prestamosCobrador.filter(p => p.ubicacion.tipo === 'coordenadas');
-    const sinUbicacion = prestamosCobrador.filter(p => p.ubicacion.tipo === 'sin_visita');
+    const conUbicacion = prestamosCobrador.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'coordenadas');
+    const sinUbicacion = prestamosCobrador.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'sin_visita');
 
     if (conUbicacion.length === 0 && sinUbicacion.length === 0) {
         alert(`⚠️ No hay préstamos disponibles para ${cobrador}
@@ -1113,7 +1096,7 @@ async function regenerarRutaConCambios() {
         if (!prestamo) return;
         
         // Verificar si el valor cambió
-        const valorOriginal = prestamo.ubicacion.lat && prestamo.ubicacion.lng 
+        const valorOriginal = prestamo && prestamo.ubicacion && prestamo.ubicacion.lat && prestamo.ubicacion.lng 
             ? `${prestamo.ubicacion.lat},${prestamo.ubicacion.lng}` 
             : '';
         
@@ -1397,7 +1380,7 @@ async function registrarGPSManual() {
 
     // Calcular distancia con la ubicación original de la ruta
     let distanciaDesviacion = 0;
-    if (prestamo.ubicacion.lat && prestamo.ubicacion.lng) {
+    if (prestamo && prestamo.ubicacion && prestamo.ubicacion.lat && prestamo.ubicacion.lng) {
         distanciaDesviacion = calcularDistanciaReal(
             prestamo.ubicacion.lat, prestamo.ubicacion.lng,
             lat, lng,
@@ -2559,14 +2542,14 @@ function actualizarReportes() {
     // ===== ESTADÍSTICAS DETALLADAS =====
     const container = document.getElementById('estadisticas');
     
-    const conUbicacion = appState.prestamos.filter(p => p.ubicacion.tipo === 'coordenadas').length;
-    const sinUbicacion = appState.prestamos.filter(p => p.ubicacion.tipo === 'sin_visita').length;
+    const conUbicacion = appState.prestamos.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'coordenadas').length;
+    const sinUbicacion = appState.prestamos.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'sin_visita').length;
     const porcentajeConGPS = totalPrestamos > 0 ? (conUbicacion / totalPrestamos * 100).toFixed(1) : 0;
     
     const estatsPorCobradorDetalle = appState.cobradores.map(cobrador => {
         const prestamosCobrador = appState.prestamos.filter(p => p.cobrador === cobrador);
         const visitadosCobrador = prestamosCobrador.filter(p => p.visitado).length;
-        const conUbicacionCobrador = prestamosCobrador.filter(p => p.ubicacion.tipo === 'coordenadas').length;
+        const conUbicacionCobrador = prestamosCobrador.filter(p => p && p.ubicacion && p.ubicacion.tipo === 'coordenadas').length;
         
         return {
             cobrador,
