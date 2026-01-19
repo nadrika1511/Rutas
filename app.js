@@ -1,4 +1,14 @@
-// ARCHIVO: app.js - VERSIÓN CORREGIDA (Sin módulos ES6)
+// ===== IMPORTACIONES DE FIREBASE =====
+import { db } from './firebase-config.js';
+import { 
+    collection, 
+    getDocs, 
+    addDoc, 
+    updateDoc, 
+    doc, 
+    query, 
+    where 
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 // Variables globales
 let todosLosPrestamos = [];
@@ -54,7 +64,9 @@ async function cargarCobradores() {
         
         // Mostrar desglose por cobrador
         cobradores.forEach((prestamos, nombre) => {
-            console.log(`   ${nombre}: ${prestamos.length} préstamos`);
+            const domiciliares = prestamos.filter(p => p.tipoVisita === 'domiciliar').length;
+            const laborales = prestamos.filter(p => p.tipoVisita === 'laboral').length;
+            console.log(`   ${nombre}: ${prestamos.length} préstamos (D:${domiciliares} L:${laborales})`);
         });
         
     } catch (error) {
@@ -427,3 +439,19 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Botón Descargar PDF configurado');
     }
 });
+```
+
+## 📝 Resumen de cambios:
+
+1. ✅ **index.html** - HTML completo con toda la estructura
+2. ✅ **app.js** - Con las importaciones de Firebase correctas
+3. ✅ Ambos usan `type="module"` 
+4. ✅ El código carga TODOS los préstamos sin agrupar por cliente
+
+Ahora deberías ver en consola:
+```
+🚀 Inicializando aplicación...
+🔄 Cargando préstamos desde Firebase...
+✅ Total préstamos cargados: XXX
+✅ Total cobradores: XX
+   Yony Rodas: 107 préstamos (D:XX L:XX)
