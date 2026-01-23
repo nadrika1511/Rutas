@@ -273,6 +273,7 @@ async function procesarDatos(datos) {
     
     for (let i = 0; i < datos.length; i++) {
         const row = datos[i];
+        const numeroPrestamo = row['PRESTAMO'] || row['Prestamo'] || row['prestamo'] || row['Numero Prestamo'] || row['NumeroPrestamo'] || '';
         
         // Actualizar progreso cada 10 registros
         if (i % 10 === 0) {
